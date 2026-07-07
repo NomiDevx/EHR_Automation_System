@@ -85,37 +85,88 @@ export function PublicBookingClient({ doctors }: PublicBookingClientProps) {
     }
   };
 
-  const onSubmit = async (data: BookingFormData) => {
-    setError(null);
-    try {
-      // Construct scheduled_at ISO timestamp combining date and time
-      const scheduledAt = new Date(`${data.date}T${data.time}:00`).toISOString();
-      const result = await bookPublicAppointment({
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        dateOfBirth: data.dateOfBirth,
-        gender: data.gender,
-        providerId: data.providerId,
-        appointmentType: data.appointmentType,
-        scheduledAt,
-        chiefComplaint: data.chiefComplaint,
-      });
+  const [pendingBookingData, setPendingBookingData] = useState<BookingFormData | null>(null);
 
-      if (result.success) {
-        const doctor = doctors.find(d => d.id === data.providerId);
-        setSuccessData({
-          mrn: result.mrn ?? 'Pending',
-          date: data.date,
-          time: TIME_SLOTS.find(t => t.value === data.time)?.label ?? data.time,
-          doctorName: doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : 'Selected Provider',
-        });
-      }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong. Please try again.');
+  const onSubmit = async (data: BookingFormData) => {
+    // Save pending booking details and display the sign-up requirement notification
+    setPendingBookingData(data);
+    const promptElement = document.getElementById('booking-section');
+    if (promptElement) {
+      promptElement.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const handleRedirectToSignup = () => {
+    if (!pendingBookingData) return;
+    const urlParams = new URLSearchParams({
+      booking: 'true',
+      firstName: pendingBookingData.firstName,
+      lastName: pendingBookingData.lastName,
+      email: pendingBookingData.email,
+      phone: pendingBookingData.phone,
+      dob: pendingBookingData.dateOfBirth,
+      gender: pendingBookingData.gender,
+      providerId: pendingBookingData.providerId,
+      appointmentType: pendingBookingData.appointmentType,
+      date: pendingBookingData.date,
+      time: pendingBookingData.time,
+      chiefComplaint: pendingBookingData.chiefComplaint || '',
+    });
+    window.location.href = `/signup?${urlParams.toString()}`;
+  };
+
+  if (pendingBookingData) {
+    const doctor = doctors.find(d => d.id === pendingBookingData.providerId);
+    const doctorName = doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : 'Selected Provider';
+    const timeLabel = TIME_SLOTS.find(t => t.value === pendingBookingData.time)?.label ?? pendingBookingData.time;
+
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 text-center animate-scale-up" id="booking-section">
+        <Card className="border-amber-500/20 bg-amber-500/5 p-8 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl" />
+          </div>
+
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/30 mb-6 text-amber-400">
+            <User className="w-8 h-8" />
+          </div>
+
+          <h2 className="text-2xl font-extrabold text-[hsl(var(--foreground))] mb-2">Patient Account Required</h2>
+          <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))] max-w-md mx-auto mb-6">
+            To finalise and submit your appointment, you must first register for a secure Patient Portal account. Your booking details will be saved and finalised immediately upon sign-up.
+          </p>
+
+          {/* Booking Summary */}
+          <div className="border border-[hsl(var(--border))] rounded-2xl bg-[hsl(var(--surface))] overflow-hidden max-w-md mx-auto mb-8 divide-y divide-[hsl(var(--border-muted))]">
+            <div className="p-4 bg-amber-500/5">
+              <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Appointment Summary</p>
+              <p className="text-lg font-bold text-[hsl(var(--foreground))] mt-1">{doctorName}</p>
+              <p className="text-xs text-amber-500 mt-0.5">{pendingBookingData.appointmentType.replace('_', ' ').toUpperCase()}</p>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-4 text-left text-xs font-medium">
+              <div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] font-normal">Date</p>
+                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{pendingBookingData.date}</p>
+              </div>
+              <div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] font-normal">Time</p>
+                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{timeLabel}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button variant="secondary" onClick={() => setPendingBookingData(null)}>
+              Modify Appointment Details
+            </Button>
+            <Button variant="primary" onClick={handleRedirectToSignup} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold">
+              Create Account & Finalize Booking <ChevronRight className="w-4 h-4 ml-1 inline" />
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   if (successData) {
     return (

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
+import { bookPublicAppointment } from '@/app/actions';
 import { Input, Button, ParticlesBg } from '@/components/ui';
 import { HeartPulse } from 'lucide-react';
 
@@ -24,19 +25,39 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
+  const isBookingRedirect = searchParams.get('booking') === 'true';
+  const bookingDoctorId = searchParams.get('providerId') || '';
+  const bookingType = searchParams.get('appointmentType') || '';
+  const bookingDate = searchParams.get('date') || '';
+  const bookingTime = searchParams.get('time') || '';
+  const bookingComplaint = searchParams.get('chiefComplaint') || '';
+  const bookingDob = searchParams.get('dob') || '';
+  const bookingGender = searchParams.get('gender') || '';
+  const bookingPhone = searchParams.get('phone') || '';
+
+  const defaultFirstName = searchParams.get('firstName') || '';
+  const defaultLastName = searchParams.get('lastName') || '';
+  const defaultEmail = searchParams.get('email') || '';
+
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      firstName: defaultFirstName,
+      lastName: defaultLastName,
+      email: defaultEmail,
+    }
   });
 
   const onSubmit = async ({ email, password, firstName, lastName }: FormData) => {
     setError(null);
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: signUpData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -47,6 +68,28 @@ export default function SignupPage() {
       setError(authError.message);
       return;
     }
+
+    // Auto-finalize pending booking details
+    if (isBookingRedirect && signUpData?.user) {
+      try {
+        const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
+        await bookPublicAppointment({
+          firstName,
+          lastName,
+          email,
+          phone: bookingPhone,
+          dateOfBirth: bookingDob,
+          gender: bookingGender as any,
+          providerId: bookingDoctorId,
+          appointmentType: bookingType as any,
+          scheduledAt,
+          chiefComplaint: bookingComplaint,
+        });
+      } catch (bookErr: any) {
+        console.error('Failed to auto-finalize appointment booking:', bookErr.message);
+      }
+    }
+
     setSuccess(true);
   };
 
@@ -54,7 +97,6 @@ export default function SignupPage() {
     <div className="min-h-screen flex w-full relative">
       {/* Left visual showcase (Desktop only) */}
       <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] bg-slate-950 flex-col justify-between p-12 relative overflow-hidden border-r border-slate-900">
-        {/* Glow effect and Particle Network */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-slate-950 to-teal-950/10 z-0" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] z-0" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] z-0" />
@@ -73,14 +115,12 @@ export default function SignupPage() {
           <div className="relative w-full max-w-[480px] animate-float">
             <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-500 to-teal-500 rounded-2xl blur-lg opacity-25" />
             <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-glow-blue">
-              {/* Fake Window Controls */}
               <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800 bg-slate-950/80">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
                 <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
                 <div className="text-[10px] text-slate-500 font-medium ml-4">MediCore EHR Portal v2.4.0</div>
               </div>
-              {/* Dashboard Preview Image */}
               <div className="p-1.5 bg-slate-900">
                 <img
                   src="/images/medical_dashboard_preview.png"
@@ -104,19 +144,16 @@ export default function SignupPage() {
 
       {/* Right side content */}
       <div className="w-full lg:w-[55%] xl:w-[50%] flex flex-col justify-center items-center p-6 md:p-12 relative min-h-screen bg-[hsl(var(--background))]">
-        {/* Particle Bg for mobile */}
         <div className="block lg:hidden absolute inset-0 z-0">
           <ParticlesBg />
         </div>
         
-        {/* Soft background blobs on mobile */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] dark:bg-blue-600/5" />
           <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-teal-800/10 rounded-full blur-[100px] dark:bg-teal-800/5" />
         </div>
 
         <div className="relative z-10 w-full max-w-md animate-slide-up">
-          {/* Logo only on mobile */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-3 shadow-glow">
               <HeartPulse className="w-8 h-8 text-white" />
@@ -126,22 +163,29 @@ export default function SignupPage() {
           </div>
 
           {success ? (
-            /* Success confirmation card */
             <div className="card bg-[hsl(var(--surface))]/80 backdrop-blur-md border border-[hsl(var(--border))]/75 shadow-lg p-6 md:p-8 rounded-2xl text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600/20 border border-emerald-500/30 mb-4 animate-bounce">
                 <HeartPulse className="w-8 h-8 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-2">Check your email</h2>
-              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">
-                We sent a confirmation link to your email. Click it to activate your patient portal account.
+              <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-2">
+                {isBookingRedirect ? 'Account Created & Appointment Saved!' : 'Check your email'}
+              </h2>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6 leading-relaxed">
+                {isBookingRedirect
+                  ? 'Your Patient Portal account has been registered and your appointment is scheduled. Please click the confirmation link sent to your email to activate your account.'
+                  : 'We sent a confirmation link to your email. Click it to activate your patient portal account.'}
               </p>
               <Link href="/login" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 btn justify-center">
                 Back to Sign In
               </Link>
             </div>
           ) : (
-            /* Signup Form Card */
             <div className="card bg-[hsl(var(--surface))]/80 backdrop-blur-md border border-[hsl(var(--border))]/75 shadow-lg p-6 md:p-8 rounded-2xl">
+              {isBookingRedirect && (
+                <div className="mb-4 alert alert-info text-xs">
+                  <span>🏥 Complete your registration below to submit your appointment reservation.</span>
+                </div>
+              )}
               <h2 className="hidden lg:block text-2xl font-bold text-[hsl(var(--foreground))] mb-2">Create Patient Account</h2>
               <p className="hidden lg:block text-sm text-[hsl(var(--muted-foreground))] mb-6">Register to explore your medical dashboard</p>
 
@@ -190,7 +234,7 @@ export default function SignupPage() {
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 mt-2"
                   id="signup-submit-btn"
                 >
-                  Create Account
+                  Create Account & Book
                 </Button>
               </form>
 
@@ -205,12 +249,19 @@ export default function SignupPage() {
             </div>
           )}
 
-          {/* Disclaimer */}
           <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-6 opacity-60">
             ⚠️ Demo/Portfolio project — not a certified HIPAA system
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Loading signup...</div>}>
+      <SignupForm />
+    </Suspense>
   );
 }

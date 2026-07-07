@@ -9,6 +9,8 @@ import {
   Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock
 } from 'lucide-react';
 import { Card } from '@/components/ui';
+import { getWebhookUrl } from '@/app/actions';
+import { AdminSettings } from '@/components/AdminSettings';
 
 export const metadata: Metadata = { title: 'Admin Dashboard' };
 
@@ -49,6 +51,7 @@ export default async function AdminDashboard() {
   if ((profile as any)?.role !== 'admin') redirect('/login');
 
   const stats = await getAdminStats(supabase);
+  const webhookUrl = await getWebhookUrl();
 
   const statCards = [
     { label: 'Active Patients', value: stats.totalPatients ?? 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
@@ -181,6 +184,11 @@ export default async function AdminDashboard() {
             </tbody>
           </table>
         </Card>
+      </div>
+
+      {/* System Configurations Section */}
+      <div className="pt-2">
+        <AdminSettings initialWebhookUrl={webhookUrl} />
       </div>
     </div>
   );

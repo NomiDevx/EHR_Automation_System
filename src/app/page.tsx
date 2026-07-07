@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { UserRole, Profile } from '@/lib/types/database';
 import { PublicBookingClient } from '@/components/PublicBookingClient';
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
+import { HeroSlider } from '@/components/HeroSlider';
 import { Activity, ShieldCheck, Video, Heart, HelpCircle, Check, CalendarDays, Clock, Award } from 'lucide-react';
 import Link from 'next/link';
 
@@ -137,6 +138,8 @@ export default async function Home() {
             </Link>
           </div>
         </section>
+
+        <HeroSlider />
 
         {/* Clinical Services Section */}
         <section className="space-y-8">

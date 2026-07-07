@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { logAudit } from '@/lib/audit';
+import { triggerWebhookForAppointment } from '@/app/actions';
 import { Input, Button, Select, Textarea } from '@/components/ui';
 import { CalendarPlus, AlertTriangle } from 'lucide-react';
 
@@ -67,19 +68,32 @@ export function BookAppointmentForm({ patients, providers, createdById }: BookAp
     setSaving(true);
     setError(null);
     try {
-      const { error: e } = await supabase.from('appointments').insert({
-        patient_id: form.patient_id,
-        provider_id: form.provider_id,
-        type: form.type as any,
-        scheduled_at: new Date(form.scheduled_at).toISOString(),
-        duration_mins: parseInt(form.duration_mins),
-        chief_complaint: form.chief_complaint || null,
-        notes: form.notes || null,
-        created_by: createdById,
-        status: 'scheduled',
-      });
+      const { data, error: e } = await supabase
+        .from('appointments')
+        .insert({
+          patient_id: form.patient_id,
+          provider_id: form.provider_id,
+          type: form.type as any,
+          scheduled_at: new Date(form.scheduled_at).toISOString(),
+          duration_mins: parseInt(form.duration_mins),
+          chief_complaint: form.chief_complaint || null,
+          notes: form.notes || null,
+          created_by: createdById,
+          status: 'scheduled',
+        })
+        .select('id')
+        .single();
       if (e) throw e;
       await logAudit({ action: 'create', tableName: 'appointments', patientId: form.patient_id });
+
+      if (data?.id) {
+        try {
+          await triggerWebhookForAppointment(data.id);
+        } catch (webhookErr: any) {
+          console.error('Failed to trigger webhook from receptionist schedule:', webhookErr.message);
+        }
+      }
+
       router.push('/schedule');
     } catch (e: any) {
       setError(e.message ?? 'Failed to book appointment');
