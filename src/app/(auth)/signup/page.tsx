@@ -234,7 +234,7 @@ function SignupForm() {
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 mt-2"
                   id="signup-submit-btn"
                 >
-                  Create Account & Book
+                  {isBookingRedirect ? 'Create Account & Book' : 'Create Account'}
                 </Button>
               </form>
 

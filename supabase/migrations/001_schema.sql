@@ -393,7 +393,7 @@ begin
     new.email,
     coalesce(new.raw_user_meta_data->>'first_name', ''),
     coalesce(new.raw_user_meta_data->>'last_name', ''),
-    coalesce((new.raw_user_meta_data->>'role')::user_role, 'patient')
+    coalesce(new.raw_user_meta_data->>'role', 'patient')::user_role
   );
   return new;
 end;
