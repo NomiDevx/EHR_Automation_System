@@ -61,7 +61,36 @@ function LoginForm() {
     if (!user) return;
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const role = ((profile as any)?.role as UserRole) ?? 'patient';
-    router.push(ROLE_HOME[role]);
+    
+    // Redirect handling with next query param validation (Open Redirect protection)
+    const nextParam = params.get('next');
+    let targetUrl = ROLE_HOME[role];
+
+    if (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') && !nextParam.startsWith('\\')) {
+      const routeRoles: [string, UserRole[]][] = [
+        ['/admin', ['admin']],
+        ['/clinical', ['admin', 'doctor', 'nurse']],
+        ['/reception', ['admin', 'receptionist']],
+        ['/portal', ['patient']],
+        ['/schedule', ['admin', 'doctor', 'nurse', 'receptionist']],
+      ];
+
+      let isAllowed = true;
+      for (const [prefix, allowedRoles] of routeRoles) {
+        if (nextParam.startsWith(prefix)) {
+          if (!allowedRoles.includes(role)) {
+            isAllowed = false;
+          }
+          break;
+        }
+      }
+
+      if (isAllowed) {
+        targetUrl = nextParam;
+      }
+    }
+
+    router.push(targetUrl);
     router.refresh();
   };
 

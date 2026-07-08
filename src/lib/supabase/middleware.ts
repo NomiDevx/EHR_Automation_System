@@ -48,9 +48,19 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
 
-  // Redirect unauthenticated users to login
-  if (!user && !path.startsWith('/login') && !path.startsWith('/signup') && path !== '/') {
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Public paths that do not require authentication
+  const isPublicPath =
+    path === '/' ||
+    path.startsWith('/login') ||
+    path.startsWith('/signup') ||
+    path.startsWith('/about') ||
+    path.startsWith('/contact');
+
+  // Redirect unauthenticated users to login, keeping track of where they wanted to go
+  if (!user && !isPublicPath) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', path);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Redirect authenticated users away from auth pages
