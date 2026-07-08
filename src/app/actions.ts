@@ -3,6 +3,41 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import type { Gender, AppointmentType } from '@/lib/types/database';
 
+// ─── Auth: Sign Up (bypasses email verification) ───────────────────────────────
+
+export async function signUpPatient(
+  email: string,
+  password: string,
+  firstName: string,
+  lastName: string,
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const adminSupabase = createAdminClient();
+
+    // Create user and immediately confirm email — no verification email needed
+    const { data, error } = await adminSupabase.auth.admin.createUser({
+      email,
+      password,
+      user_metadata: { first_name: firstName, last_name: lastName, role: 'patient' },
+      email_confirm: true,   // ← skips email verification entirely
+    });
+
+    if (error) {
+      return { error: error.message || 'Failed to create account. Please try again.' };
+    }
+
+    if (!data?.user) {
+      return { error: 'Signup failed — no user returned.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[signUpPatient]', err);
+    return { error: err?.message || 'An unexpected error occurred.' };
+  }
+}
+
+
 export interface BookingInput {
   firstName: string;
   lastName: string;

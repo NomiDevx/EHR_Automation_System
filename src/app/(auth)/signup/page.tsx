@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
-import { bookPublicAppointment } from '@/app/actions';
+import { signUpPatient, bookPublicAppointment } from '@/app/actions';
 import { Input } from '@/components/ui';
 import {
   Cross, ArrowRight, ShieldCheck, CalendarDays,
@@ -62,26 +62,28 @@ function SignupForm() {
     defaultValues: { firstName: defaultFirstName, lastName: defaultLastName, email: defaultEmail },
   });
 
+
   const onSubmit = async ({ email, password, firstName, lastName }: FormData) => {
     setError(null);
     try {
-      const { data: signUpData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { first_name: firstName, last_name: lastName, role: 'patient' },
-        },
-      });
+      // Step 1: Create user server-side with email_confirm: true (no email verification)
+      const result = await signUpPatient(email, password, firstName, lastName);
 
-      if (authError) {
-        const msg = authError.message
-          || (authError as any)?.error_description
-          || JSON.stringify(authError);
-        setError(msg || 'Signup failed. Please try again.');
+      if ('error' in result) {
+        setError(result.error);
         return;
       }
 
-      if (isBookingRedirect && signUpData?.user) {
+      // Step 2: Immediately sign in — user is already confirmed, no email needed
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        // Account was created but auto-login failed — show success + redirect to login
+        setSuccess(true);
+        return;
+      }
+
+      // Step 3: Handle booking redirect (portal-linked appointment)
+      if (isBookingRedirect) {
         try {
           const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
           await bookPublicAppointment({
@@ -99,12 +101,15 @@ function SignupForm() {
         }
       }
 
-      setSuccess(true);
+      // Step 4: Redirect to portal dashboard
+      router.push('/portal');
+      router.refresh();
     } catch (err: any) {
       console.error('[Signup] Unexpected error:', err);
       setError(err?.message || 'An unexpected error occurred. Please try again.');
     }
   };
+
 
   // ─── Success Screen ──────────────────────────────────────────
   if (success) {
@@ -120,12 +125,10 @@ function SignupForm() {
 
           <div className="space-y-2">
             <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">
-              {isBookingRedirect ? 'Account Created & Appointment Saved!' : 'Check Your Email'}
+              Account Created!
             </h2>
             <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
-              {isBookingRedirect
-                ? 'Your account is registered and your appointment is scheduled. Click the confirmation link sent to your email to activate your account.'
-                : 'We sent a confirmation link to your email. Click it to activate your Patient Portal account.'}
+              Your patient portal account is ready. Sign in below to access your dashboard.
             </p>
           </div>
 
