@@ -1,6 +1,6 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient, createClient } from '@/lib/supabase/server';
 import type { Gender, AppointmentType } from '@/lib/types/database';
 
 // ─── Auth: Sign Up (bypasses email verification) ───────────────────────────────
@@ -224,3 +224,112 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
     return { success: false, error: err.message };
   }
 }
+
+// ─── Patient Self-Logging Actions ──────────────────────────────────────────────
+
+export async function addPatientVital(data: {
+  patientId: string;
+  systolicBp?: number | null;
+  diastolicBp?: number | null;
+  heartRate?: number | null;
+  respiratoryRate?: number | null;
+  temperatureF?: number | null;
+  weightLbs?: number | null;
+  heightIn?: number | null;
+  painScale?: number | null;
+  notes?: string | null;
+}) {
+  const supabase = createAdminClient();
+  const userSupabase = await createClient(); // to verify auth
+
+  // 1. Get authenticated user
+  const { data: { user } } = await userSupabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  // 2. Verify that this patient ID belongs to this user
+  const { data: patient } = await userSupabase
+    .from('patients')
+    .select('id')
+    .eq('id', data.patientId)
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  if (!patient) {
+    throw new Error('Unauthorized: Patient record not linked to your account');
+  }
+
+  // 3. Insert vital using admin client (bypassing RLS insert restriction)
+  const { data: newVital, error } = await supabase
+    .from('vitals')
+    .insert({
+      patient_id: data.patientId,
+      recorded_by: user.id,
+      systolic_bp: data.systolicBp,
+      diastolic_bp: data.diastolicBp,
+      heart_rate: data.heartRate,
+      respiratory_rate: data.respiratoryRate,
+      temperature_f: data.temperatureF,
+      weight_lbs: data.weightLbs,
+      height_in: data.heightIn,
+      pain_scale: data.painScale,
+      notes: data.notes,
+      recorded_at: new Date().toISOString(),
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add vitals: ${error.message}`);
+  }
+
+  return { success: true, vital: newVital };
+}
+
+export async function addPatientAllergy(data: {
+  patientId: string;
+  allergen: string;
+  reaction?: string | null;
+  severity: 'mild' | 'moderate' | 'severe' | 'life_threatening';
+  onsetDate?: string | null;
+}) {
+  const supabase = createAdminClient();
+  const userSupabase = await createClient(); // to verify auth
+
+  // 1. Get authenticated user
+  const { data: { user } } = await userSupabase.auth.getUser();
+  if (!user) throw new Error('Unauthenticated');
+
+  // 2. Verify that this patient ID belongs to this user
+  const { data: patient } = await userSupabase
+    .from('patients')
+    .select('id')
+    .eq('id', data.patientId)
+    .eq('profile_id', user.id)
+    .maybeSingle();
+
+  if (!patient) {
+    throw new Error('Unauthorized: Patient record not linked to your account');
+  }
+
+  // 3. Insert allergy using admin client (bypassing RLS insert restriction)
+  const { data: newAllergy, error } = await supabase
+    .from('allergies')
+    .insert({
+      patient_id: data.patientId,
+      recorded_by: user.id,
+      allergen: data.allergen,
+      reaction: data.reaction,
+      severity: data.severity,
+      onset_date: data.onsetDate || null,
+      is_active: true,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add allergy: ${error.message}`);
+  }
+
+  return { success: true, allergy: newAllergy };
+}
+

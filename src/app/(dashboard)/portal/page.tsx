@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { formatDate, formatDateTime, LAB_FLAG_COLORS } from '@/lib/utils';
@@ -7,6 +7,7 @@ import { Calendar, FlaskConical, Pill, MessageSquare, FileText, ChevronRight, He
 import { Card } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import type { LabResultFlag } from '@/lib/types/database';
+import { PortalBookingClient } from '@/components/PortalBookingClient';
 
 export const metadata: Metadata = { title: 'My Health Portal' };
 
@@ -14,6 +15,13 @@ export default async function PortalPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Get user profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
 
   // Get patient record linked to this portal user
   const { data: patient } = await supabase
@@ -23,13 +31,28 @@ export default async function PortalPage() {
     .single();
 
   if (!patient) {
+    // Fetch active doctors using admin client to bypass patient profile select limits
+    const adminSupabase = createAdminClient();
+    const { data: doctors } = await adminSupabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'doctor')
+      .eq('is_active', true)
+      .order('last_name', { ascending: true });
+
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <HeartPulse className="w-12 h-12 text-blue-400" />
-        <h2 className="text-xl font-bold text-[hsl(var(--foreground))]">No Patient Record Found</h2>
-        <p className="text-sm text-[hsl(var(--muted-foreground))] text-center max-w-sm">
-          Your account isn't linked to a patient record yet. Please contact the clinic to link your portal account.
-        </p>
+      <div className="space-y-8 max-w-4xl mx-auto py-6">
+        <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20 p-6 flex flex-col items-center text-center gap-2">
+          <HeartPulse className="w-12 h-12 text-blue-400" />
+          <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
+            Complete Patient Onboarding
+          </h1>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-md">
+            Welcome, {profile?.first_name}! To activate your patient portal and access your records, 
+            please schedule your onboarding consultation below. This will automatically establish your clinical record.
+          </p>
+        </div>
+        <PortalBookingClient doctors={doctors ?? []} profile={profile} />
       </div>
     );
   }

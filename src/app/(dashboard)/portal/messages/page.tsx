@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { MessagesClient } from './client';
 
@@ -19,10 +19,14 @@ export default async function PortalMessagesPage() {
     .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
-  const { data: providers } = await supabase
+  // Use admin client to bypass profiles RLS select restriction for patients
+  const adminSupabase = createAdminClient();
+  const { data: providers } = await adminSupabase
     .from('profiles')
     .select('id, first_name, last_name, specialty')
-    .in('role', ['doctor', 'nurse']);
+    .in('role', ['doctor', 'nurse'])
+    .eq('is_active', true)
+    .order('last_name', { ascending: true });
 
   return (
     <div className="space-y-6 animate-fade-in">
