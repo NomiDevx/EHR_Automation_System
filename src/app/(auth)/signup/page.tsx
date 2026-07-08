@@ -8,14 +8,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
 import { bookPublicAppointment } from '@/app/actions';
-import { Input, Button, ParticlesBg } from '@/components/ui';
-import { HeartPulse } from 'lucide-react';
+import { Input } from '@/components/ui';
+import {
+  Cross, ArrowRight, ShieldCheck, CalendarDays,
+  FileText, MessageSquare,
+} from 'lucide-react';
 
 const schema = z.object({
   firstName: z.string().min(2, 'First name required'),
   lastName: z.string().min(2, 'Last name required'),
-  email: z.string().email('Invalid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
+  email: z.string().email('Invalid email address'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
     .regex(/[A-Z]/, 'Must contain an uppercase letter')
     .regex(/[0-9]/, 'Must contain a number'),
   confirmPassword: z.string(),
@@ -25,6 +29,13 @@ const schema = z.object({
 });
 type FormData = z.infer<typeof schema>;
 
+const PORTAL_PERKS = [
+  { icon: CalendarDays, label: 'View & manage appointments online' },
+  { icon: FileText,     label: 'Instant access to lab results & charts' },
+  { icon: ShieldCheck,  label: 'Encrypted health record storage' },
+  { icon: MessageSquare,label: 'Secure messaging with your care team' },
+];
+
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -33,224 +44,282 @@ function SignupForm() {
   const supabase = createClient();
 
   const isBookingRedirect = searchParams.get('booking') === 'true';
-  const bookingDoctorId = searchParams.get('providerId') || '';
-  const bookingType = searchParams.get('appointmentType') || '';
-  const bookingDate = searchParams.get('date') || '';
-  const bookingTime = searchParams.get('time') || '';
-  const bookingComplaint = searchParams.get('chiefComplaint') || '';
-  const bookingDob = searchParams.get('dob') || '';
-  const bookingGender = searchParams.get('gender') || '';
-  const bookingPhone = searchParams.get('phone') || '';
+  const bookingDoctorId   = searchParams.get('providerId') || '';
+  const bookingType       = searchParams.get('appointmentType') || '';
+  const bookingDate       = searchParams.get('date') || '';
+  const bookingTime       = searchParams.get('time') || '';
+  const bookingComplaint  = searchParams.get('chiefComplaint') || '';
+  const bookingDob        = searchParams.get('dob') || '';
+  const bookingGender     = searchParams.get('gender') || '';
+  const bookingPhone      = searchParams.get('phone') || '';
 
   const defaultFirstName = searchParams.get('firstName') || '';
-  const defaultLastName = searchParams.get('lastName') || '';
-  const defaultEmail = searchParams.get('email') || '';
+  const defaultLastName  = searchParams.get('lastName') || '';
+  const defaultEmail     = searchParams.get('email') || '';
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      firstName: defaultFirstName,
-      lastName: defaultLastName,
-      email: defaultEmail,
-    }
+    defaultValues: { firstName: defaultFirstName, lastName: defaultLastName, email: defaultEmail },
   });
 
   const onSubmit = async ({ email, password, firstName, lastName }: FormData) => {
     setError(null);
-    const { data: signUpData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { first_name: firstName, last_name: lastName, role: 'patient' },
-      },
-    });
-    if (authError) {
-      setError(authError.message);
-      return;
-    }
+    try {
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { first_name: firstName, last_name: lastName, role: 'patient' },
+        },
+      });
 
-    // Auto-finalize pending booking details
-    if (isBookingRedirect && signUpData?.user) {
-      try {
-        const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
-        await bookPublicAppointment({
-          firstName,
-          lastName,
-          email,
-          phone: bookingPhone,
-          dateOfBirth: bookingDob,
-          gender: bookingGender as any,
-          providerId: bookingDoctorId,
-          appointmentType: bookingType as any,
-          scheduledAt,
-          chiefComplaint: bookingComplaint,
-        });
-      } catch (bookErr: any) {
-        console.error('Failed to auto-finalize appointment booking:', bookErr.message);
+      if (authError) {
+        const msg = authError.message
+          || (authError as any)?.error_description
+          || JSON.stringify(authError);
+        setError(msg || 'Signup failed. Please try again.');
+        return;
       }
-    }
 
-    setSuccess(true);
+      if (isBookingRedirect && signUpData?.user) {
+        try {
+          const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
+          await bookPublicAppointment({
+            firstName, lastName, email,
+            phone: bookingPhone,
+            dateOfBirth: bookingDob,
+            gender: bookingGender as any,
+            providerId: bookingDoctorId,
+            appointmentType: bookingType as any,
+            scheduledAt,
+            chiefComplaint: bookingComplaint,
+          });
+        } catch (bookErr: any) {
+          console.error('Failed to auto-finalize booking:', bookErr.message);
+        }
+      }
+
+      setSuccess(true);
+    } catch (err: any) {
+      console.error('[Signup] Unexpected error:', err);
+      setError(err?.message || 'An unexpected error occurred. Please try again.');
+    }
   };
 
+  // ─── Success Screen ──────────────────────────────────────────
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--background))] px-6">
+        <div className="relative z-10 max-w-md w-full text-center space-y-6 animate-slide-up">
+          {/* Animated check ring */}
+          <div className="mx-auto flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30">
+            <svg className="w-9 h-9 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">
+              {isBookingRedirect ? 'Account Created & Appointment Saved!' : 'Check Your Email'}
+            </h2>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
+              {isBookingRedirect
+                ? 'Your account is registered and your appointment is scheduled. Click the confirmation link sent to your email to activate your account.'
+                : 'We sent a confirmation link to your email. Click it to activate your Patient Portal account.'}
+            </p>
+          </div>
+
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold hover:bg-[hsl(220,55%,28%)] transition-all"
+          >
+            Back to Sign In <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <p className="text-xs text-[hsl(var(--muted-foreground))] opacity-50">
+            ⚠️ Demo / Portfolio — not a certified HIPAA system
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Signup Form ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex w-full relative">
-      {/* Left visual showcase (Desktop only) */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] bg-slate-950 flex-col justify-between p-12 relative overflow-hidden border-r border-slate-900">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-slate-950 to-teal-950/10 z-0" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] z-0" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] z-0" />
-        <ParticlesBg />
+    <div className="min-h-screen flex w-full">
 
-        {/* Header */}
+      {/* ── Left Panel ─────────────────────────────────────────── */}
+      <div
+        className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 relative overflow-hidden"
+        style={{ background: 'hsl(220,45%,11%)' }}
+      >
+        {/* Radial glows */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-20 -right-20 w-[450px] h-[450px] rounded-full bg-[hsl(43,62%,48%)]/6 blur-[100px]" />
+          <div className="absolute bottom-0 left-0 w-[350px] h-[350px] rounded-full bg-[hsl(215,75%,55%)]/8 blur-[100px]" />
+        </div>
+
+        {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 shadow-glow">
-            <HeartPulse className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[hsl(43,62%,48%)]/15 border border-[hsl(43,62%,48%)]/30">
+            <Cross className="w-5 h-5 text-[hsl(43,62%,65%)] fill-[hsl(43,62%,65%)]" />
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">MediCore EHR</span>
+          <span className="font-display text-xl font-semibold text-white tracking-wide">
+            Medi<span className="text-[hsl(43,62%,60%)]">Core</span>
+          </span>
         </div>
 
-        {/* Center Mockup Visualization */}
-        <div className="relative z-10 flex items-center justify-center py-8">
-          <div className="relative w-full max-w-[480px] animate-float">
-            <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-500 to-teal-500 rounded-2xl blur-lg opacity-25" />
-            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-glow-blue">
-              <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800 bg-slate-950/80">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <div className="text-[10px] text-slate-500 font-medium ml-4">MediCore EHR Portal v2.4.0</div>
-              </div>
-              <div className="p-1.5 bg-slate-900">
-                <img
-                  src="/images/medical_dashboard_preview.png"
-                  alt="MediCore Dashboard Preview"
-                  className="rounded-lg border border-slate-800 w-full object-cover shadow-inner"
-                />
-              </div>
-            </div>
+        {/* Editorial content */}
+        <div className="relative z-10 space-y-8">
+          <div className="w-10 h-px bg-[hsl(43,62%,48%)]" />
+
+          <div className="space-y-4">
+            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(43,62%,55%)]">
+              Patient Portal
+            </p>
+            <h2 className="font-display text-4xl font-600 text-white leading-tight">
+              Your health records,<br />instantly accessible.
+            </h2>
+            <p className="text-sm text-[hsl(215,20%,60%)] leading-relaxed max-w-sm">
+              Create a free account to unlock your complete health dashboard — view records, manage appointments, and connect with clinical staff.
+            </p>
           </div>
+
+          {/* Portal perks */}
+          <ul className="space-y-3">
+            {PORTAL_PERKS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-3 text-sm text-[hsl(215,15%,65%)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[hsl(43,62%,48%)]/10 border border-[hsl(43,62%,48%)]/20 shrink-0">
+                  <Icon className="w-3.5 h-3.5 text-[hsl(43,62%,55%)]" />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Footer info */}
         <div className="relative z-10">
-          <p className="text-teal-400 font-semibold text-sm tracking-wide uppercase">Patient Empowerment</p>
-          <h2 className="text-2xl font-bold text-white mt-1 leading-snug">Access your health records instantly.</h2>
-          <p className="text-slate-400 text-sm mt-2 max-w-md">
-            Create an account to securely view medical histories, request prescription refills, schedule appointments, and coordinate with care teams.
+          <p className="text-xs text-[hsl(215,15%,40%)]">
+            © {new Date().getFullYear()} MediCore Healthcare · Demo Portfolio
           </p>
         </div>
       </div>
 
-      {/* Right side content */}
-      <div className="w-full lg:w-[55%] xl:w-[50%] flex flex-col justify-center items-center p-6 md:p-12 relative min-h-screen bg-[hsl(var(--background))]">
-        <div className="block lg:hidden absolute inset-0 z-0">
-          <ParticlesBg />
-        </div>
-        
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] dark:bg-blue-600/5" />
-          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-teal-800/10 rounded-full blur-[100px] dark:bg-teal-800/5" />
+      {/* ── Right Panel — form ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[hsl(var(--background))] relative overflow-y-auto">
+        {/* Background glows */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-48 -right-48 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+          <div className="absolute -bottom-48 -left-48 w-[400px] h-[400px] rounded-full bg-[hsl(var(--accent))]/5 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-md animate-slide-up">
-          <div className="flex flex-col items-center mb-8 lg:hidden">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-3 shadow-glow">
-              <HeartPulse className="w-8 h-8 text-white" />
+        <div className="relative z-10 w-full max-w-[440px] animate-slide-up space-y-8">
+
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center space-y-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[hsl(var(--primary))] mb-1">
+              <Cross className="w-6 h-6 text-white fill-white" />
             </div>
-            <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">MediCore EHR</h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Access your health records online</p>
+            <h1 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">
+              Medi<span className="text-[hsl(var(--accent))]">Core</span> EHR
+            </h1>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">Register for your patient portal</p>
           </div>
 
-          {success ? (
-            <div className="card bg-[hsl(var(--surface))]/80 backdrop-blur-md border border-[hsl(var(--border))]/75 shadow-lg p-6 md:p-8 rounded-2xl text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-600/20 border border-emerald-500/30 mb-4 animate-bounce">
-                <HeartPulse className="w-8 h-8 text-emerald-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-[hsl(var(--foreground))] mb-2">
-                {isBookingRedirect ? 'Account Created & Appointment Saved!' : 'Check your email'}
-              </h2>
-              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6 leading-relaxed">
-                {isBookingRedirect
-                  ? 'Your Patient Portal account has been registered and your appointment is scheduled. Please click the confirmation link sent to your email to activate your account.'
-                  : 'We sent a confirmation link to your email. Click it to activate your patient portal account.'}
-              </p>
-              <Link href="/login" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 btn justify-center">
-                Back to Sign In
-              </Link>
-            </div>
-          ) : (
-            <div className="card bg-[hsl(var(--surface))]/80 backdrop-blur-md border border-[hsl(var(--border))]/75 shadow-lg p-6 md:p-8 rounded-2xl">
-              {isBookingRedirect && (
-                <div className="mb-4 alert alert-info text-xs">
-                  <span>🏥 Complete your registration below to submit your appointment reservation.</span>
-                </div>
-              )}
-              <h2 className="hidden lg:block text-2xl font-bold text-[hsl(var(--foreground))] mb-2">Create Patient Account</h2>
-              <p className="hidden lg:block text-sm text-[hsl(var(--muted-foreground))] mb-6">Register to explore your medical dashboard</p>
+          {/* Heading */}
+          <div className="hidden lg:block space-y-1">
+            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))]">Get Started</p>
+            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">Create Account</h2>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] pt-1">
+              Register to explore your personal health dashboard.
+            </p>
+          </div>
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="First Name" id="signup-first-name" error={errors.firstName?.message} {...register('firstName')} />
-                  <Input label="Last Name" id="signup-last-name" error={errors.lastName?.message} {...register('lastName')} />
-                </div>
-                
-                <Input
-                  label="Email address"
-                  type="email"
-                  id="signup-email"
-                  placeholder="you@example.com"
-                  error={errors.email?.message}
-                  {...register('email')}
-                />
-                
-                <Input
-                  label="Password"
-                  type="password"
-                  id="signup-password"
-                  placeholder="Min 8 chars, 1 uppercase, 1 number"
-                  error={errors.password?.message}
-                  {...register('password')}
-                />
-                
-                <Input
-                  label="Confirm Password"
-                  type="password"
-                  id="signup-confirm-password"
-                  placeholder="••••••••"
-                  error={errors.confirmPassword?.message}
-                  {...register('confirmPassword')}
-                />
-
-                {error && (
-                  <div className="alert-error">
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  loading={isSubmitting}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10 mt-2"
-                  id="signup-submit-btn"
-                >
-                  {isBookingRedirect ? 'Create Account & Book' : 'Create Account'}
-                </Button>
-              </form>
-
-              <div className="mt-6 pt-5 border-t border-[hsl(var(--border))] text-center">
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                  Already have an account?{' '}
-                  <Link href="/login" className="text-blue-500 hover:text-blue-400 hover:underline font-medium transition-colors">
-                    Sign in
-                  </Link>
-                </p>
-              </div>
+          {/* Booking redirect notice */}
+          {isBookingRedirect && (
+            <div className="alert-info text-sm">
+              <span>🏥 Complete your registration below to confirm your appointment reservation.</span>
             </div>
           )}
 
-          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-6 opacity-60">
-            ⚠️ Demo/Portfolio project — not a certified HIPAA system
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="First Name" id="signup-first-name" error={errors.firstName?.message} {...register('firstName')} />
+              <Input label="Last Name"  id="signup-last-name"  error={errors.lastName?.message}  {...register('lastName')} />
+            </div>
+
+            <Input
+              label="Email address"
+              type="email"
+              id="signup-email"
+              placeholder="you@example.com"
+              error={errors.email?.message}
+              {...register('email')}
+            />
+
+            <Input
+              label="Password"
+              type="password"
+              id="signup-password"
+              placeholder="Min 8 chars, 1 uppercase, 1 number"
+              error={errors.password?.message}
+              {...register('password')}
+            />
+
+            <Input
+              label="Confirm Password"
+              type="password"
+              id="signup-confirm-password"
+              placeholder="••••••••"
+              error={errors.confirmPassword?.message}
+              {...register('confirmPassword')}
+            />
+
+            {error && (
+              <div className="alert-error text-sm">
+                <span>{typeof error === 'string' ? error : 'An unexpected error occurred. Please try again.'}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              id="signup-submit-btn"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold tracking-wide hover:bg-[hsl(220,55%,28%)] disabled:opacity-60 transition-all duration-200 shadow-md mt-1"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Creating account…
+                </>
+              ) : (
+                <>
+                  {isBookingRedirect ? 'Create Account & Book' : 'Create Account'}
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer link */}
+          <div className="pt-1 border-t border-[hsl(var(--border))] text-center">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
+              Already have an account?{' '}
+              <Link
+                href="/login"
+                className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
+              >
+                Sign in
+              </Link>
+            </p>
+          </div>
+
+          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] opacity-50">
+            ⚠️ Demo / Portfolio — not a certified HIPAA system
           </p>
         </div>
       </div>
@@ -260,7 +329,11 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Loading signup...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(220,45%,11%)] text-white font-display text-xl">
+        Loading…
+      </div>
+    }>
       <SignupForm />
     </Suspense>
   );

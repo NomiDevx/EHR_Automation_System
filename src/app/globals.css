@@ -1,43 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CSS Design Tokens (Light/Dark Themes) ─────────────────────────────────── */
+/* ─── CSS Design Tokens — Premium Navy / Gold / Cream ───────────────────────── */
 :root {
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  --background: 38 25% 97%;          /* warm cream */
+  --foreground: 220 45% 12%;         /* deep navy */
   --surface: 0 0% 100%;
-  --surface-hover: 210 40% 96%;
-  --border: 214 32% 91%;
-  --border-muted: 214 32% 95%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 210 40% 98%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --surface-hover: 38 20% 94%;
+  --border: 215 22% 87%;
+  --border-muted: 215 22% 93%;
+  --muted: 215 20% 94%;
+  --muted-foreground: 215 18% 48%;
+  --accent: 43 62% 48%;              /* warm gold */
+  --accent-foreground: 220 45% 12%;
+  --primary: 220 55% 22%;            /* deep royal blue */
+  --primary-foreground: 38 25% 97%;
+  --destructive: 0 72% 54%;
+  --destructive-foreground: 0 0% 100%;
   --radius: 0.625rem;
+  --gold: 43 62% 48%;
+  --gold-light: 43 70% 72%;
 }
 
 .dark {
-  --background: 222 47% 7%;
-  --foreground: 213 31% 91%;
-  --surface: 222 47% 11%;
-  --surface-hover: 222 47% 14%;
-  --border: 222 25% 20%;
-  --border-muted: 222 25% 15%;
-  --muted: 222 30% 30%;
-  --muted-foreground: 215 20% 55%;
-  --accent: 222 47% 15%;
-  --accent-foreground: 213 31% 91%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 7%;
-  --destructive: 0 72% 51%;
+  --background: 222 42% 8%;          /* deep navy-black */
+  --foreground: 38 20% 91%;          /* warm white */
+  --surface: 222 38% 12%;
+  --surface-hover: 222 35% 16%;
+  --border: 222 25% 22%;
+  --border-muted: 222 25% 17%;
+  --muted: 222 28% 22%;
+  --muted-foreground: 215 18% 58%;
+  --accent: 43 68% 54%;              /* gold stays warm in dark */
+  --accent-foreground: 222 42% 8%;
+  --primary: 215 75% 62%;            /* lighter blue for dark */
+  --primary-foreground: 222 42% 8%;
+  --destructive: 0 65% 52%;
   --destructive-foreground: 0 0% 100%;
+  --gold: 43 68% 54%;
+  --gold-light: 43 60% 38%;
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────────── */
@@ -56,10 +60,15 @@ html {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Premium heading font utility */
+.font-display {
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────────── */

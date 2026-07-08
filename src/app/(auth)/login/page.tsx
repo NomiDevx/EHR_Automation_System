@@ -7,8 +7,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
-import { Input, Button, ParticlesBg } from '@/components/ui';
-import { HeartPulse, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Input, Button } from '@/components/ui';
+import { Cross, Eye, EyeOff, ShieldCheck, ArrowRight, Activity, Users, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/lib/types/database';
 
@@ -21,10 +21,17 @@ const ROLE_HOME: Record<UserRole, string> = {
 };
 
 const schema = z.object({
-  email: z.string().email('Invalid email'),
+  email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 type FormData = z.infer<typeof schema>;
+
+const TRUST_POINTS = [
+  { icon: ShieldCheck, label: 'End-to-end encrypted records' },
+  { icon: Users,       label: '12,000+ patients served' },
+  { icon: Activity,    label: 'Real-time clinical updates' },
+  { icon: Award,       label: 'Board-certified clinicians' },
+];
 
 function LoginForm() {
   const router = useRouter();
@@ -50,8 +57,6 @@ function LoginForm() {
       setError(authError.message);
       return;
     }
-
-    // Fetch role and redirect
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
@@ -61,160 +66,189 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex w-full relative">
-      {/* Left visual showcase (Desktop only) */}
-      <div className="hidden lg:flex lg:w-[45%] xl:w-[50%] bg-slate-950 flex-col justify-between p-12 relative overflow-hidden border-r border-slate-900">
-        {/* Glow effect and Particle Network */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/20 via-slate-950 to-emerald-950/10 z-0" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] z-0" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] z-0" />
-        <ParticlesBg />
+    <div className="min-h-screen flex w-full">
 
-        {/* Header */}
+      {/* ── Left Panel — deep navy, editorial ───────────────────── */}
+      <div
+        className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 relative overflow-hidden"
+        style={{ background: 'hsl(220,45%,11%)' }}
+      >
+        {/* Subtle radial glows */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full bg-[hsl(43,62%,48%)]/6 blur-[120px]" />
+          <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-[hsl(215,75%,55%)]/8 blur-[100px]" />
+        </div>
+
+        {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-600 shadow-glow">
-            <HeartPulse className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[hsl(43,62%,48%)]/15 border border-[hsl(43,62%,48%)]/30">
+            <Cross className="w-5 h-5 text-[hsl(43,62%,65%)] fill-[hsl(43,62%,65%)]" />
           </div>
-          <span className="text-xl font-bold text-white tracking-tight">MediCore EHR</span>
+          <span className="font-display text-xl font-semibold text-white tracking-wide">
+            Medi<span className="text-[hsl(43,62%,60%)]">Core</span>
+          </span>
         </div>
 
-        {/* Center Mockup Visualization */}
-        <div className="relative z-10 flex items-center justify-center py-8">
-          <div className="relative w-full max-w-[480px] animate-float">
-            <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-2xl blur-lg opacity-25" />
-            <div className="relative bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl shadow-glow-blue">
-              {/* Fake Window Controls */}
-              <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-800 bg-slate-950/80">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <div className="text-[10px] text-slate-500 font-medium ml-4">MediCore EHR Portal v2.4.0</div>
-              </div>
-              {/* Dashboard Preview Image */}
-              <div className="p-1.5 bg-slate-900">
-                <img
-                  src="/images/medical_dashboard_preview.png"
-                  alt="MediCore Dashboard Preview"
-                  className="rounded-lg border border-slate-800 w-full object-cover shadow-inner"
-                />
-              </div>
-            </div>
+        {/* Center editorial block */}
+        <div className="relative z-10 space-y-8">
+          {/* Gold accent line */}
+          <div className="w-10 h-px bg-[hsl(43,62%,48%)]" />
+
+          <div className="space-y-4">
+            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(43,62%,55%)]">
+              Secure Patient Portal
+            </p>
+            <h2 className="font-display text-4xl font-600 text-white leading-tight">
+              Your health,<br />always within reach.
+            </h2>
+            <p className="text-sm text-[hsl(215,20%,60%)] leading-relaxed max-w-sm">
+              Access appointments, clinical records, lab results, prescriptions, and secure messages with your care team — all in one place.
+            </p>
           </div>
+
+          {/* Trust points */}
+          <ul className="space-y-3">
+            {TRUST_POINTS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-3 text-sm text-[hsl(215,15%,65%)]">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[hsl(43,62%,48%)]/10 border border-[hsl(43,62%,48%)]/20 shrink-0">
+                  <Icon className="w-3.5 h-3.5 text-[hsl(43,62%,55%)]" />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
 
-        {/* Footer info */}
+        {/* Bottom tagline */}
         <div className="relative z-10">
-          <p className="text-blue-400 font-semibold text-sm tracking-wide uppercase">Next-Gen Patient Portal</p>
-          <h2 className="text-2xl font-bold text-white mt-1 leading-snug">Secure. Integrated. Real-time care.</h2>
-          <p className="text-slate-400 text-sm mt-2 max-w-md">
-            Manage appointments, view detailed lab results instantly, keep track of prescriptions, and communicate securely with your providers.
+          <p className="text-xs text-[hsl(215,15%,40%)]">
+            © {new Date().getFullYear()} MediCore Healthcare · Demo Portfolio
           </p>
         </div>
       </div>
 
-      {/* Right side form */}
-      <div className="w-full lg:w-[55%] xl:w-[50%] flex flex-col justify-center items-center p-6 md:p-12 relative min-h-screen bg-[hsl(var(--background))]">
-        {/* Particle Bg for mobile */}
-        <div className="block lg:hidden absolute inset-0 z-0">
-          <ParticlesBg />
-        </div>
-        
-        {/* Soft background blobs on mobile */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] dark:bg-blue-600/5" />
-          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-800/10 rounded-full blur-[100px] dark:bg-blue-800/5" />
+      {/* ── Right Panel — form ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[hsl(var(--background))] relative">
+        {/* Soft background glows */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-48 -right-48 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
+          <div className="absolute -bottom-48 -left-48 w-[400px] h-[400px] rounded-full bg-[hsl(var(--accent))]/5 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-md animate-slide-up">
-          {/* Logo only on mobile */}
-          <div className="flex flex-col items-center mb-8 lg:hidden">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-3 shadow-glow">
-              <HeartPulse className="w-8 h-8 text-white" />
+        <div className="relative z-10 w-full max-w-[420px] animate-slide-up space-y-8">
+
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center space-y-2">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[hsl(var(--primary))] mb-1">
+              <Cross className="w-6 h-6 text-white fill-white" />
             </div>
-            <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">MediCore EHR</h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Sign in to your portal account</p>
+            <h1 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">
+              Medi<span className="text-[hsl(var(--accent))]">Core</span> EHR
+            </h1>
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">Sign in to your portal account</p>
           </div>
 
-          {/* Form Card */}
-          <div className="card bg-[hsl(var(--surface))]/80 backdrop-blur-md border border-[hsl(var(--border))]/75 shadow-lg p-6 md:p-8 rounded-2xl">
-            <h2 className="hidden lg:block text-2xl font-bold text-[hsl(var(--foreground))] mb-2">Welcome Back</h2>
-            <p className="hidden lg:block text-sm text-[hsl(var(--muted-foreground))] mb-6">Sign in to access your dashboard</p>
+          {/* Heading */}
+          <div className="hidden lg:block space-y-1">
+            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))]">Welcome Back</p>
+            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">Sign In</h2>
+            <p className="text-sm text-[hsl(var(--muted-foreground))] pt-1">
+              Access your patient dashboard and clinical records.
+            </p>
+          </div>
 
-            {/* Alert banners */}
-            {reason && reasonMsg[reason] && (
-              <div className="alert-warning mb-4">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>{reasonMsg[reason]}</span>
+          {/* Session alerts */}
+          {reason && reasonMsg[reason] && (
+            <div className="alert-warning text-sm">
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>{reasonMsg[reason]}</span>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <Input
+              label="Email address"
+              type="email"
+              id="login-email"
+              placeholder="you@example.com"
+              autoComplete="email"
+              error={errors.email?.message}
+              {...register('email')}
+            />
+
+            <div className="flex flex-col gap-1">
+              <label htmlFor="login-password" className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className={cn(
+                    'input pr-10',
+                    errors.password && 'border-red-500/50 focus:ring-red-400'
+                  )}
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
+                  id="toggle-password-btn"
+                  aria-label="Toggle password visibility"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+            </div>
+
+            {error && (
+              <div className="alert-error text-sm">
+                <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <Input
-                label="Email address"
-                type="email"
-                id="login-email"
-                placeholder="you@example.com"
-                autoComplete="email"
-                error={errors.email?.message}
-                {...register('email')}
-              />
-              
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="login-password" className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
-                    Password
-                  </label>
-                </div>
-                <div className="relative">
-                  <input
-                    id="login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className={cn('input pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent', errors.password && 'border-red-500/50')}
-                    {...register('password')}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-                    id="toggle-password-btn"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
-              </div>
-
-              {error && (
-                <div className="alert-error">
-                  <span>{error}</span>
-                </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              id="login-submit-btn"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold tracking-wide hover:bg-[hsl(220,55%,28%)] disabled:opacity-60 transition-all duration-200 shadow-md"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Signing in…
+                </>
+              ) : (
+                <>
+                  Sign In <ArrowRight className="w-4 h-4" />
+                </>
               )}
+            </button>
+          </form>
 
-              <Button
-                type="submit"
-                loading={isSubmitting}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-md shadow-blue-500/10"
-                id="login-submit-btn"
+          {/* Divider + link */}
+          <div className="pt-1 border-t border-[hsl(var(--border))] text-center">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
+              New patient?{' '}
+              <Link
+                href="/signup"
+                className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
               >
-                Sign In
-              </Button>
-            </form>
-
-            <div className="mt-6 pt-5 border-t border-[hsl(var(--border))] text-center">
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                New patient?{' '}
-                <Link href="/signup" className="text-blue-500 hover:text-blue-400 hover:underline font-medium transition-colors">
-                  Create a portal account
-                </Link>
-              </p>
-            </div>
+                Create a portal account
+              </Link>
+            </p>
           </div>
 
-          {/* Disclaimer */}
-          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-6 opacity-60">
-            ⚠️ Demo/Portfolio project — not a certified HIPAA system
+          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] opacity-50">
+            ⚠️ Demo / Portfolio — not a certified HIPAA system
           </p>
         </div>
       </div>
@@ -224,7 +258,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">Loading sign in...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[hsl(220,45%,11%)] text-white font-display text-xl">
+        Loading…
+      </div>
+    }>
       <LoginForm />
     </Suspense>
   );

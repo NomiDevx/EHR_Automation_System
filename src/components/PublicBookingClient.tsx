@@ -5,9 +5,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { bookPublicAppointment } from '@/app/actions';
-import { Input, Select, Button, Card, Textarea } from '@/components/ui';
+import { Input, Select, Textarea } from '@/components/ui';
 import type { Profile } from '@/lib/types/database';
-import { Calendar, CheckCircle2, User, Stethoscope, ChevronRight } from 'lucide-react';
+import {
+  Calendar, CheckCircle2, User, Stethoscope,
+  ArrowRight, ChevronLeft, Clock, MapPin,
+} from 'lucide-react';
 import Link from 'next/link';
 
 interface PublicBookingClientProps {
@@ -46,7 +49,6 @@ const APPOINTMENT_TYPE_OPTIONS = [
   { value: 'urgent', label: 'Urgent Care' },
 ];
 
-// Generates time slots every 30 minutes from 9 AM to 4:30 PM
 const TIME_SLOTS = [
   { value: '09:00', label: '9:00 AM' },
   { value: '09:30', label: '9:30 AM' },
@@ -57,43 +59,59 @@ const TIME_SLOTS = [
   { value: '13:00', label: '1:00 PM' },
   { value: '13:30', label: '1:30 PM' },
   { value: '14:00', label: '2:00 PM' },
-  { value: '14:30', label: '2:40 PM' },
+  { value: '14:30', label: '2:30 PM' },
   { value: '15:00', label: '3:00 PM' },
   { value: '15:30', label: '3:30 PM' },
   { value: '16:00', label: '4:00 PM' },
 ];
 
+/* ── Small helpers ──────────────────────────────────────────────── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))] mb-1">
+      {children}
+    </p>
+  );
+}
+
+function FieldGroup({ label, icon: Icon }: { label: string; icon: React.ElementType }) {
+  return (
+    <div className="flex items-center gap-2 pb-3 mb-2 border-b border-[hsl(var(--border-muted))]">
+      <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[hsl(var(--primary))]/8 border border-[hsl(var(--primary))]/15">
+        <Icon className="w-3.5 h-3.5 text-[hsl(var(--primary))]" />
+      </span>
+      <h4 className="text-sm font-semibold text-[hsl(var(--foreground))]">{label}</h4>
+    </div>
+  );
+}
+
+/* ── Main Component ─────────────────────────────────────────────── */
+
 export function PublicBookingClient({ doctors }: PublicBookingClientProps) {
   const [successData, setSuccessData] = useState<{ mrn: string; date: string; time: string; doctorName: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pendingBookingData, setPendingBookingData] = useState<BookingFormData | null>(null);
 
   const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm<BookingFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       gender: 'prefer_not_to_say',
       appointmentType: 'new_patient',
-    }
+    },
   });
 
   const selectedDoctorId = watch('providerId');
 
   const onSelectDoctor = (id: string) => {
     setValue('providerId', id);
-    const formElement = document.getElementById('booking-section');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth' });
-    }
+    setTimeout(() => {
+      document.getElementById('booking-form-section')?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
   };
 
-  const [pendingBookingData, setPendingBookingData] = useState<BookingFormData | null>(null);
-
   const onSubmit = async (data: BookingFormData) => {
-    // Save pending booking details and display the sign-up requirement notification
     setPendingBookingData(data);
-    const promptElement = document.getElementById('booking-section');
-    if (promptElement) {
-      promptElement.scrollIntoView({ behavior: 'smooth' });
-    }
   };
 
   const handleRedirectToSignup = () => {
@@ -115,282 +133,389 @@ export function PublicBookingClient({ doctors }: PublicBookingClientProps) {
     window.location.href = `/signup?${urlParams.toString()}`;
   };
 
+  /* ── Account Required Prompt ──────────────────────────────────── */
   if (pendingBookingData) {
     const doctor = doctors.find(d => d.id === pendingBookingData.providerId);
-    const doctorName = doctor ? `Dr. ${doctor.first_name} ${doctor.last_name}` : 'Selected Provider';
+    const doctorName = doctor
+      ? `Dr. ${doctor.first_name} ${doctor.last_name}`
+      : 'Selected Provider';
     const timeLabel = TIME_SLOTS.find(t => t.value === pendingBookingData.time)?.label ?? pendingBookingData.time;
+    const apptTypeLabel = APPOINTMENT_TYPE_OPTIONS.find(o => o.value === pendingBookingData.appointmentType)?.label ?? pendingBookingData.appointmentType;
 
     return (
-      <div className="max-w-2xl mx-auto py-12 px-4 text-center animate-scale-up" id="booking-section">
-        <Card className="border-amber-500/20 bg-amber-500/5 p-8 relative overflow-hidden">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl" />
-          </div>
-
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/30 mb-6 text-amber-400">
-            <User className="w-8 h-8" />
-          </div>
-
-          <h2 className="text-2xl font-extrabold text-[hsl(var(--foreground))] mb-2">Patient Account Required</h2>
-          <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))] max-w-md mx-auto mb-6">
-            To finalise and submit your appointment, you must first register for a secure Patient Portal account. Your booking details will be saved and finalised immediately upon sign-up.
+      <div className="max-w-xl mx-auto py-10 px-4 animate-slide-up" id="booking-section">
+        {/* Section label */}
+        <div className="text-center mb-8">
+          <SectionLabel>One More Step</SectionLabel>
+          <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">
+            Patient Account Required
+          </h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-3 max-w-md mx-auto leading-relaxed">
+            To finalise your appointment, please register for a free Patient Portal account.
+            Your booking details are saved and will be confirmed immediately upon sign-up.
           </p>
+        </div>
 
-          {/* Booking Summary */}
-          <div className="border border-[hsl(var(--border))] rounded-2xl bg-[hsl(var(--surface))] overflow-hidden max-w-md mx-auto mb-8 divide-y divide-[hsl(var(--border-muted))]">
-            <div className="p-4 bg-amber-500/5">
-              <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Appointment Summary</p>
-              <p className="text-lg font-bold text-[hsl(var(--foreground))] mt-1">{doctorName}</p>
-              <p className="text-xs text-amber-500 mt-0.5">{pendingBookingData.appointmentType.replace('_', ' ').toUpperCase()}</p>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-4 text-left text-xs font-medium">
-              <div>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] font-normal">Date</p>
-                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{pendingBookingData.date}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[hsl(var(--muted-foreground))] font-normal">Time</p>
-                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{timeLabel}</p>
-              </div>
+        {/* Appointment summary card */}
+        <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden mb-6">
+          {/* Header strip */}
+          <div className="px-6 py-4 border-b border-[hsl(var(--border-muted))] bg-[hsl(var(--accent))]/5 flex items-center gap-3">
+            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[hsl(var(--accent))]/15 border border-[hsl(var(--accent))]/25">
+              <Calendar className="w-4 h-4 text-[hsl(var(--accent))]" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))]">Appointment Summary</p>
+              <p className="font-display text-base font-semibold text-[hsl(var(--foreground))] mt-0.5">{doctorName}</p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button variant="secondary" onClick={() => setPendingBookingData(null)}>
-              Modify Appointment Details
-            </Button>
-            <Button variant="primary" onClick={handleRedirectToSignup} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold">
-              Create Account & Finalize Booking <ChevronRight className="w-4 h-4 ml-1 inline" />
-            </Button>
+          {/* Details */}
+          <div className="px-6 py-4 grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-1">Type</p>
+              <p className="font-medium text-[hsl(var(--foreground))]">{apptTypeLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-1">Date</p>
+              <p className="font-medium text-[hsl(var(--foreground))]">{pendingBookingData.date}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-1">Time</p>
+              <p className="font-medium text-[hsl(var(--foreground))]">{timeLabel}</p>
+            </div>
           </div>
-        </Card>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={() => setPendingBookingData(null)}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-[hsl(var(--border))] text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-[hsl(var(--foreground))]/30 transition-all"
+          >
+            <ChevronLeft className="w-4 h-4" /> Modify Details
+          </button>
+          <button
+            onClick={handleRedirectToSignup}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold hover:bg-[hsl(220,55%,28%)] transition-all shadow-md"
+          >
+            Create Account & Confirm <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-5 opacity-60">
+          Already have an account?{' '}
+          <Link href="/login" className="text-[hsl(var(--accent))] hover:underline underline-offset-2">Sign in</Link>
+          {' '}and your booking will be linked automatically.
+        </p>
       </div>
     );
   }
 
+  /* ── Success Screen ───────────────────────────────────────────── */
   if (successData) {
     return (
-      <div className="max-w-2xl mx-auto py-12 px-4 text-center animate-scale-up">
-        <Card className="border-emerald-500/20 bg-emerald-500/5 p-8 relative overflow-hidden">
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl" />
+      <div className="max-w-xl mx-auto py-10 px-4 text-center animate-slide-up">
+        {/* Check ring */}
+        <div className="mx-auto mb-6 flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-400/30">
+          <CheckCircle2 className="w-9 h-9 text-emerald-500" />
+        </div>
+
+        <SectionLabel>Confirmed</SectionLabel>
+        <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))] mb-3">
+          Appointment Scheduled!
+        </h2>
+        <p className="text-sm text-[hsl(var(--muted-foreground))] max-w-sm mx-auto mb-8 leading-relaxed">
+          Your appointment is registered in our system. No account is needed for your visit — just bring your MRN below.
+        </p>
+
+        {/* MRN + details card */}
+        <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden mb-8">
+          <div className="px-6 py-5 border-b border-[hsl(var(--border-muted))] bg-[hsl(var(--primary))]/4">
+            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--muted-foreground))]">Medical Record Number (MRN)</p>
+            <p className="font-mono text-3xl font-bold text-[hsl(var(--primary))] mt-1 select-all tracking-widest">
+              {successData.mrn}
+            </p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]/70 mt-1">Keep this for check-in reference</p>
           </div>
-
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 mb-6 text-emerald-400">
-            <CheckCircle2 className="w-10 h-10 animate-bounce" />
-          </div>
-
-          <h2 className="text-3xl font-extrabold text-[hsl(var(--foreground))] mb-2">Appointment Scheduled!</h2>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] max-w-md mx-auto mb-6">
-            Your appointment has been registered successfully in our system. You do not need to register an account to visit.
-          </p>
-
-          <div className="border border-[hsl(var(--border))] rounded-2xl bg-[hsl(var(--surface))] overflow-hidden max-w-md mx-auto mb-8 divide-y divide-[hsl(var(--border-muted))]">
-            <div className="p-4 bg-blue-500/5">
-              <p className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wider font-semibold">Your Medical Record Number (MRN)</p>
-              <p className="text-2xl font-mono font-bold text-blue-600 dark:text-blue-400 mt-1 select-all">{successData.mrn}</p>
-              <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-1">Please keep this MRN for your reference during check-in.</p>
+          <div className="px-6 py-4 grid grid-cols-2 gap-4 text-left text-sm">
+            <div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-1">Doctor</p>
+              <p className="font-semibold text-[hsl(var(--foreground))]">{successData.doctorName}</p>
             </div>
-            <div className="p-4 grid grid-cols-2 gap-4 text-left text-sm">
-              <div>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Doctor</p>
-                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{successData.doctorName}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">Date & Time</p>
-                <p className="font-semibold text-[hsl(var(--foreground))] mt-0.5">{successData.date} at {successData.time}</p>
-              </div>
+            <div>
+              <p className="text-xs text-[hsl(var(--muted-foreground))] mb-1">Date & Time</p>
+              <p className="font-semibold text-[hsl(var(--foreground))]">{successData.date} · {successData.time}</p>
             </div>
           </div>
+        </div>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button variant="secondary" onClick={() => setSuccessData(null)}>
-              Book Another Appointment
-            </Button>
-            <Link href="/login">
-              <Button variant="primary">
-                Go to Portal Login <ChevronRight className="w-4 h-4 ml-1 inline" />
-              </Button>
-            </Link>
-          </div>
-        </Card>
+        <div className="flex flex-col sm:flex-row justify-center gap-3">
+          <button
+            onClick={() => setSuccessData(null)}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-[hsl(var(--border))] text-sm font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-all"
+          >
+            Book Another
+          </button>
+          <Link href="/login">
+            <span className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold hover:bg-[hsl(220,55%,28%)] transition-all shadow-md cursor-pointer">
+              Go to Portal <ArrowRight className="w-4 h-4" />
+            </span>
+          </Link>
+        </div>
       </div>
     );
   }
 
+  /* ── Main View: Doctor Grid + Form ───────────────────────────── */
   return (
-    <div className="space-y-16 py-8">
-      {/* Doctors Grid Section */}
-      <section className="space-y-6">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[hsl(var(--foreground))]">Meet Our Specialized Doctors</h2>
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Select a specialist from our care team to schedule your visit.
+    <div className="space-y-20">
+
+      {/* ─── Doctors Grid ─────────────────────────────────────── */}
+      <section className="space-y-10">
+        <div className="text-center max-w-xl mx-auto space-y-3">
+          <SectionLabel>Our Clinical Team</SectionLabel>
+          <h2 className="font-display text-3xl sm:text-4xl font-600 text-[hsl(var(--foreground))]">
+            Meet Our Doctors
+          </h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
+            Select a specialist from our care team below to schedule your visit.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {doctors.map((doc) => (
-            <Card key={doc.id} className="flex flex-col h-full hover:border-blue-500/30 transition-all border-[hsl(var(--border))]">
-              <div className="p-6 flex-1 space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="relative rounded-2xl overflow-hidden w-14 h-14 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 flex items-center justify-center border border-blue-500/30 shadow-glow">
-                    {doc.avatar_url ? (
-                      <img src={doc.avatar_url} alt={`${doc.first_name} ${doc.last_name}`} className="object-cover w-full h-full" />
-                    ) : (
-                      <Stethoscope className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-[hsl(var(--foreground))]">Dr. {doc.first_name} {doc.last_name}</h3>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-0.5">{doc.specialty || 'General Practitioner'}</p>
-                    <p className="text-[10px] text-[hsl(var(--muted-foreground))]">{doc.department || 'Clinical Care'}</p>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-[hsl(var(--border-muted))] text-xs text-[hsl(var(--muted-foreground))] space-y-1.5">
-                  <p>📍 Available for In-person & Telehealth</p>
-                  <p>⏱️ Avg. appointment duration: 30 mins</p>
-                </div>
-              </div>
-              <div className="p-4 bg-[hsl(var(--muted))]/10 border-t border-[hsl(var(--border-muted))]">
-                <Button
-                  variant={selectedDoctorId === doc.id ? 'secondary' : 'primary'}
-                  className="w-full justify-center"
-                  onClick={() => onSelectDoctor(doc.id)}
+        {doctors.length === 0 ? (
+          <div className="text-center py-16 border border-dashed border-[hsl(var(--border))] rounded-2xl">
+            <Stethoscope className="w-10 h-10 text-[hsl(var(--muted-foreground))]/30 mx-auto mb-3" />
+            <p className="text-sm text-[hsl(var(--muted-foreground))]">No doctors available at the moment.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {doctors.map((doc) => {
+              const isSelected = selectedDoctorId === doc.id;
+              return (
+                <div
+                  key={doc.id}
+                  className={`group relative bg-[hsl(var(--surface))] border rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+                    isSelected
+                      ? 'border-[hsl(var(--accent))]/50 shadow-lg shadow-[hsl(var(--accent))]/5'
+                      : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent))]/30 hover:shadow-md'
+                  }`}
                 >
-                  {selectedDoctorId === doc.id ? 'Selected' : 'Book with Doctor'}
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+                  {/* Selected indicator */}
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-[hsl(var(--accent))]/15 border border-[hsl(var(--accent))]/30">
+                      <CheckCircle2 className="w-3 h-3 text-[hsl(var(--accent))]" />
+                      <span className="text-[10px] font-semibold text-[hsl(var(--accent))]">Selected</span>
+                    </div>
+                  )}
+
+                  {/* Card body */}
+                  <div className="p-6 flex-1 space-y-4">
+                    {/* Avatar + name */}
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-[hsl(var(--primary))]/8 border border-[hsl(var(--primary))]/15 flex items-center justify-center shrink-0">
+                        {doc.avatar_url ? (
+                          <img
+                            src={doc.avatar_url}
+                            alt={`${doc.first_name} ${doc.last_name}`}
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <Stethoscope className="w-6 h-6 text-[hsl(var(--primary))]" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-display text-base font-semibold text-[hsl(var(--foreground))] leading-snug">
+                          Dr. {doc.first_name} {doc.last_name}
+                        </h3>
+                        <p className="text-xs font-medium text-[hsl(var(--accent))] mt-0.5 truncate">
+                          {doc.specialty || 'General Practitioner'}
+                        </p>
+                        <p className="text-[11px] text-[hsl(var(--muted-foreground))] truncate">
+                          {doc.department || 'Clinical Care'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Details */}
+                    <div className="pt-3 border-t border-[hsl(var(--border-muted))] space-y-1.5">
+                      <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]">
+                        <MapPin className="w-3.5 h-3.5 shrink-0 text-[hsl(var(--accent))]/60" />
+                        In-person & Telehealth
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[hsl(var(--muted-foreground))]">
+                        <Clock className="w-3.5 h-3.5 shrink-0 text-[hsl(var(--accent))]/60" />
+                        30 min avg. appointment
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="px-5 pb-5">
+                    <button
+                      onClick={() => onSelectDoctor(doc.id)}
+                      className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-[hsl(var(--accent))]/15 border border-[hsl(var(--accent))]/30 text-[hsl(var(--accent))]'
+                          : 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(220,55%,28%)] shadow-sm'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <><CheckCircle2 className="w-4 h-4" /> Doctor Selected</>
+                      ) : (
+                        <>Book with Doctor <ArrowRight className="w-4 h-4" /></>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Bottom gold line on hover/selected */}
+                  <div className={`h-px w-full bg-gradient-to-r from-[hsl(var(--accent))] to-transparent transition-opacity duration-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-40'}`} />
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
-      {/* Booking Form Section */}
-      <section id="booking-section" className="max-w-3xl mx-auto scroll-mt-20">
-        <Card className="border-[hsl(var(--border))]">
-          <div className="p-6 sm:p-8 space-y-6">
-            <div className="flex items-center gap-3 pb-4 border-b border-[hsl(var(--border-muted))]">
-              <div className="rounded-xl p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400">
-                <Calendar className="w-6 h-6" />
+      {/* ─── Booking Form ─────────────────────────────────────── */}
+      <section id="booking-form-section" className="max-w-2xl mx-auto scroll-mt-24">
+        {/* Section header */}
+        <div className="text-center mb-10">
+          <SectionLabel>Schedule a Visit</SectionLabel>
+          <h2 className="font-display text-3xl sm:text-4xl font-600 text-[hsl(var(--foreground))]">
+            Book an Appointment
+          </h2>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-2">
+            No account required. Fill in your details and we'll confirm your visit.
+          </p>
+        </div>
+
+        <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden">
+          {/* Form header bar */}
+          <div className="px-6 sm:px-8 py-5 border-b border-[hsl(var(--border-muted))] flex items-center gap-3 bg-[hsl(var(--primary))]/3">
+            <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/15">
+              <Calendar className="w-4.5 h-4.5 text-[hsl(var(--primary))]" />
+            </span>
+            <div>
+              <h3 className="font-display text-lg font-semibold text-[hsl(var(--foreground))]">Appointment Request</h3>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">No account needed · Takes about 2 minutes</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="px-6 sm:px-8 py-7 space-y-8">
+
+            {/* Personal Information */}
+            <div className="space-y-4">
+              <FieldGroup label="Personal Information" icon={User} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="First Name" error={errors.firstName?.message} {...register('firstName')} />
+                <Input label="Last Name"  error={errors.lastName?.message}  {...register('lastName')} />
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-[hsl(var(--foreground))]">Apply for Appointment</h3>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">No account required. Fill in the details to schedule.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Email address"
+                  type="email"
+                  placeholder="name@example.com"
+                  error={errors.email?.message}
+                  {...register('email')}
+                />
+                <Input
+                  label="Phone number"
+                  placeholder="555-123-4567"
+                  error={errors.phone?.message}
+                  {...register('phone')}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Date of birth"
+                  type="date"
+                  error={errors.dateOfBirth?.message}
+                  {...register('dateOfBirth')}
+                />
+                <Select
+                  label="Gender"
+                  options={GENDER_OPTIONS}
+                  error={errors.gender?.message}
+                  {...register('gender')}
+                />
               </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Patient Personal Details */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                  <User className="w-4 h-4" /> Personal Information
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="First Name"
-                    error={errors.firstName?.message}
-                    {...register('firstName')}
-                  />
-                  <Input
-                    label="Last Name"
-                    error={errors.lastName?.message}
-                    {...register('lastName')}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Email address"
-                    type="email"
-                    placeholder="name@example.com"
-                    error={errors.email?.message}
-                    {...register('email')}
-                  />
-                  <Input
-                    label="Phone number"
-                    placeholder="555-123-4567"
-                    error={errors.phone?.message}
-                    {...register('phone')}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Date of birth"
-                    type="date"
-                    error={errors.dateOfBirth?.message}
-                    {...register('dateOfBirth')}
-                  />
-                  <Select
-                    label="Gender"
-                    options={GENDER_OPTIONS}
-                    error={errors.gender?.message}
-                    {...register('gender')}
-                  />
-                </div>
-              </div>
-
-              {/* Appointment Scheduling Details */}
-              <div className="space-y-4 pt-4 border-t border-[hsl(var(--border-muted))]">
-                <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
-                  <Stethoscope className="w-4 h-4" /> Visit Information
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select
-                    label="Select Doctor"
-                    options={[
-                      { value: '', label: 'Select a physician...' },
-                      ...doctors.map(d => ({ value: d.id, label: `Dr. ${d.first_name} ${d.last_name} (${d.specialty || 'General Practitioner'})` }))
-                    ]}
-                    error={errors.providerId?.message}
-                    {...register('providerId')}
-                  />
-                  <Select
-                    label="Visit Type"
-                    options={APPOINTMENT_TYPE_OPTIONS}
-                    error={errors.appointmentType?.message}
-                    {...register('appointmentType')}
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Preferred Date"
-                    type="date"
-                    error={errors.date?.message}
-                    {...register('date')}
-                  />
-                  <Select
-                    label="Preferred Time"
-                    options={[{ value: '', label: 'Select slot...' }, ...TIME_SLOTS]}
-                    error={errors.time?.message}
-                    {...register('time')}
-                  />
-                </div>
-                <Textarea
-                  label="Reason for Visit (Chief Complaint)"
-                  placeholder="Describe your symptoms or reason for visit (optional)"
-                  error={errors.chiefComplaint?.message}
-                  rows={3}
-                  {...register('chiefComplaint')}
+            {/* Visit Information */}
+            <div className="space-y-4">
+              <FieldGroup label="Visit Information" icon={Stethoscope} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select
+                  label="Select Doctor"
+                  options={[
+                    { value: '', label: 'Choose a physician…' },
+                    ...doctors.map(d => ({
+                      value: d.id,
+                      label: `Dr. ${d.first_name} ${d.last_name} · ${d.specialty || 'GP'}`,
+                    })),
+                  ]}
+                  error={errors.providerId?.message}
+                  {...register('providerId')}
+                />
+                <Select
+                  label="Visit Type"
+                  options={APPOINTMENT_TYPE_OPTIONS}
+                  error={errors.appointmentType?.message}
+                  {...register('appointmentType')}
                 />
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Preferred Date"
+                  type="date"
+                  error={errors.date?.message}
+                  {...register('date')}
+                />
+                <Select
+                  label="Preferred Time"
+                  options={[{ value: '', label: 'Select time slot…' }, ...TIME_SLOTS]}
+                  error={errors.time?.message}
+                  {...register('time')}
+                />
+              </div>
+              <Textarea
+                label="Reason for Visit (optional)"
+                placeholder="Briefly describe your symptoms or reason for visiting…"
+                error={errors.chiefComplaint?.message}
+                rows={3}
+                {...register('chiefComplaint')}
+              />
+            </div>
 
-              {error && (
-                <div className="alert-error">
-                  <span>{error}</span>
-                </div>
+            {error && (
+              <div className="alert-error text-sm">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold tracking-wide hover:bg-[hsl(220,55%,28%)] disabled:opacity-60 transition-all duration-200 shadow-md"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Processing…
+                </>
+              ) : (
+                <>Request Appointment <ArrowRight className="w-4 h-4" /></>
               )}
+            </button>
 
-              <Button
-                type="submit"
-                loading={isSubmitting}
-                className="w-full justify-center text-sm py-2.5"
-                variant="primary"
-              >
-                Schedule Appointment <ChevronRight className="w-4 h-4 ml-1 inline" />
-              </Button>
-            </form>
-          </div>
-        </Card>
+            <p className="text-center text-xs text-[hsl(var(--muted-foreground))] opacity-60">
+              By submitting, you agree our staff may contact you to confirm scheduling.
+            </p>
+          </form>
+        </div>
       </section>
     </div>
   );
