@@ -219,10 +219,6 @@ export async function saveWebhookUrl(url: string) {
 export async function triggerWebhookForAppointment(appointmentId: string) {
   try {
     const supabase = createAdminClient();
-    const webhookUrl = await getWebhookUrl();
-    if (!webhookUrl) {
-      return { success: false, reason: 'No Webhook URL configured' };
-    }
 
     const { data: appt, error } = await supabase
       .from('appointments')
@@ -233,6 +229,16 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
     if (error || !appt) {
       console.error('Failed to fetch appointment details for webhook:', error?.message);
       return { success: false, reason: 'Appointment not found' };
+    }
+
+    // Try snapshotted webhook_url on the appointment row, fallback to current settings
+    let webhookUrl = (appt as any).webhook_url;
+    if (!webhookUrl) {
+      webhookUrl = await getWebhookUrl();
+    }
+
+    if (!webhookUrl) {
+      return { success: false, reason: 'No Webhook URL configured' };
     }
 
     const payload = {
