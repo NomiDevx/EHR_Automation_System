@@ -145,7 +145,7 @@ export function AppShell({ profile, children }: AppShellProps) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.refresh();
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const roleColor: Record<UserRole, string> = {

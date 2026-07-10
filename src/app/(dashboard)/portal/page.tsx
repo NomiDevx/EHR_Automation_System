@@ -14,7 +14,11 @@ import type { LabResultFlag } from '@/lib/types/database';
 
 export const metadata: Metadata = { title: 'My Health Portal' };
 
-export default async function PortalPage() {
+interface PortalPageProps {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}
+
+export default async function PortalPage({ searchParams }: PortalPageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -50,8 +54,19 @@ export default async function PortalPage() {
       .eq('is_active', true)
       .order('last_name', { ascending: true });
 
+    const isSuccess = searchParams?.booking_success === 'true';
+
     return (
       <div className="space-y-6 max-w-5xl mx-auto py-2">
+        {isSuccess && (
+          <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium animate-fade-in shadow-md mb-2">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <div>
+              <p className="font-semibold text-emerald-400">Appointment Confirmation</p>
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">Your onboarding consultation has been booked and confirmed successfully! You can view details in your schedule below.</p>
+            </div>
+          </div>
+        )}
         {/* Welcome Header */}
         <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20 p-6 rounded-2xl">
           <div className="flex items-center justify-between gap-4">
@@ -245,8 +260,19 @@ export default async function PortalPage() {
     supabase.from('messages').select('id').eq('recipient_id', user.id).is('read_at', null),
   ]);
 
+  const isSuccess = searchParams?.booking_success === 'true';
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {isSuccess && (
+        <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium animate-fade-in shadow-md">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 animate-pulse" />
+          <div>
+            <p className="font-semibold text-emerald-400">Appointment Confirmation</p>
+            <p className="text-xs text-[hsl(var(--muted-foreground))]">Your onboarding consultation has been booked and confirmed successfully! You can view details in your schedule below.</p>
+          </div>
+        </div>
+      )}
       {/* Welcome header */}
       <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20">
         <div className="flex items-center justify-between">

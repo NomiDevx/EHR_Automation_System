@@ -222,7 +222,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
 
     const { data: appt, error } = await supabase
       .from('appointments')
-      .select('*, patient:patients(*), provider:profiles(*)')
+      .select('*, patient:patients(*), provider:profiles!appointments_provider_id_fkey(*)')
       .eq('id', appointmentId)
       .single();
 
@@ -231,15 +231,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       return { success: false, reason: 'Appointment not found' };
     }
 
-    // Try snapshotted webhook_url on the appointment row, fallback to current settings
-    let webhookUrl = (appt as any).webhook_url;
-    if (!webhookUrl) {
-      webhookUrl = await getWebhookUrl();
-    }
-
-    if (!webhookUrl) {
-      return { success: false, reason: 'No Webhook URL configured' };
-    }
+    const webhookUrl = 'https://july102026.app.n8n.cloud/webhook/book-appointment';
 
     const payload = {
       appointment_id: appt.id,
@@ -259,14 +251,21 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       portal_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
     };
 
-    // Perform the POST webhook trigger in background
-    fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }).catch((fetchErr) => {
+    // Perform the POST webhook trigger and await the response to ensure it completes in server action environment
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        console.error(`Webhook trigger returned status ${res.status}: ${res.statusText}`);
+      } else {
+        console.log(`Webhook triggered successfully to ${webhookUrl}`);
+      }
+    } catch (fetchErr: any) {
       console.error('Webhook fetch failed:', fetchErr.message);
-    });
+    }
 
     return { success: true };
   } catch (err: any) {

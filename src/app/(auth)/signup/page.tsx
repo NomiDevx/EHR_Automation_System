@@ -31,9 +31,9 @@ type FormData = z.infer<typeof schema>;
 
 const PORTAL_PERKS = [
   { icon: CalendarDays, label: 'View & manage appointments online' },
-  { icon: FileText,     label: 'Instant access to lab results & charts' },
-  { icon: ShieldCheck,  label: 'Encrypted health record storage' },
-  { icon: MessageSquare,label: 'Secure messaging with your care team' },
+  { icon: FileText, label: 'Instant access to lab results & charts' },
+  { icon: ShieldCheck, label: 'Encrypted health record storage' },
+  { icon: MessageSquare, label: 'Secure messaging with your care team' },
 ];
 
 function SignupForm() {
@@ -44,18 +44,23 @@ function SignupForm() {
   const supabase = createClient();
 
   const isBookingRedirect = searchParams.get('booking') === 'true';
-  const bookingDoctorId   = searchParams.get('providerId') || '';
-  const bookingType       = searchParams.get('appointmentType') || '';
-  const bookingDate       = searchParams.get('date') || '';
-  const bookingTime       = searchParams.get('time') || '';
-  const bookingComplaint  = searchParams.get('chiefComplaint') || '';
-  const bookingDob        = searchParams.get('dob') || '';
-  const bookingGender     = searchParams.get('gender') || '';
-  const bookingPhone      = searchParams.get('phone') || '';
+  const bookingDoctorId = searchParams.get('providerId') || '';
+  const bookingType = searchParams.get('appointmentType') || '';
+  const bookingDate = searchParams.get('date') || '';
+  const bookingTime = searchParams.get('time') || '';
+  const bookingComplaint = searchParams.get('chiefComplaint') || '';
+  const bookingDob = searchParams.get('dob') || '';
+  const bookingGender = searchParams.get('gender') || '';
+  const bookingPhone = searchParams.get('phone') || '';
+
+  const getLoginUrl = () => {
+    if (!isBookingRedirect) return '/login';
+    return `/login?${searchParams.toString()}`;
+  };
 
   const defaultFirstName = searchParams.get('firstName') || '';
-  const defaultLastName  = searchParams.get('lastName') || '';
-  const defaultEmail     = searchParams.get('email') || '';
+  const defaultLastName = searchParams.get('lastName') || '';
+  const defaultEmail = searchParams.get('email') || '';
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -101,8 +106,8 @@ function SignupForm() {
         }
       }
 
-      // Step 4: Redirect to portal dashboard
-      router.push('/portal');
+      // Step 4: Redirect to portal dashboard with booking success indicator if applicable
+      router.push(isBookingRedirect ? '/portal?booking_success=true' : '/portal');
       router.refresh();
     } catch (err: any) {
       console.error('[Signup] Unexpected error:', err);
@@ -249,7 +254,7 @@ function SignupForm() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input label="First Name" id="signup-first-name" error={errors.firstName?.message} {...register('firstName')} />
-              <Input label="Last Name"  id="signup-last-name"  error={errors.lastName?.message}  {...register('lastName')} />
+              <Input label="Last Name" id="signup-last-name" error={errors.lastName?.message}  {...register('lastName')} />
             </div>
 
             <Input
@@ -313,7 +318,7 @@ function SignupForm() {
             <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
               Already have an account?{' '}
               <Link
-                href="/login"
+                href={getLoginUrl()}
                 className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
               >
                 Sign in

@@ -133,6 +133,25 @@ export function PublicBookingClient({ doctors }: PublicBookingClientProps) {
     window.location.href = `/signup?${urlParams.toString()}`;
   };
 
+  const getLoginUrl = () => {
+    if (!pendingBookingData) return '/login';
+    const urlParams = new URLSearchParams({
+      booking: 'true',
+      firstName: pendingBookingData.firstName,
+      lastName: pendingBookingData.lastName,
+      email: pendingBookingData.email,
+      phone: pendingBookingData.phone,
+      dob: pendingBookingData.dateOfBirth,
+      gender: pendingBookingData.gender,
+      providerId: pendingBookingData.providerId,
+      appointmentType: pendingBookingData.appointmentType,
+      date: pendingBookingData.date,
+      time: pendingBookingData.time,
+      chiefComplaint: pendingBookingData.chiefComplaint || '',
+    });
+    return `/login?${urlParams.toString()}`;
+  };
+
   /* ── Account Required Prompt ──────────────────────────────────── */
   if (pendingBookingData) {
     const doctor = doctors.find(d => d.id === pendingBookingData.providerId);
@@ -204,7 +223,7 @@ export function PublicBookingClient({ doctors }: PublicBookingClientProps) {
 
         <p className="text-center text-xs text-[hsl(var(--muted-foreground))] mt-5 opacity-60">
           Already have an account?{' '}
-          <Link href="/login" className="text-[hsl(var(--accent))] hover:underline underline-offset-2">Sign in</Link>
+          <Link href={getLoginUrl()} className="text-[hsl(var(--accent))] hover:underline underline-offset-2">Sign in</Link>
           {' '}and your booking will be linked automatically.
         </p>
       </div>

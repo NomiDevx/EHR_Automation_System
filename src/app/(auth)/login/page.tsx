@@ -11,6 +11,7 @@ import { Input, Button } from '@/components/ui';
 import { Cross, Eye, EyeOff, ShieldCheck, ArrowRight, Activity, Users, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/lib/types/database';
+import { bookPublicAppointment } from '@/app/actions';
 
 const ROLE_HOME: Record<UserRole, string> = {
   admin: '/admin',
@@ -28,9 +29,9 @@ type FormData = z.infer<typeof schema>;
 
 const TRUST_POINTS = [
   { icon: ShieldCheck, label: 'End-to-end encrypted records' },
-  { icon: Users,       label: '12,000+ patients served' },
-  { icon: Activity,    label: 'Real-time clinical updates' },
-  { icon: Award,       label: 'Board-certified clinicians' },
+  { icon: Users, label: '12,000+ patients served' },
+  { icon: Activity, label: 'Real-time clinical updates' },
+  { icon: Award, label: 'Board-certified clinicians' },
 ];
 
 function LoginForm() {
@@ -39,6 +40,12 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
+
+  const getSignupUrl = () => {
+    const isBookingRedirect = params.get('booking') === 'true';
+    if (!isBookingRedirect) return '/signup';
+    return `/signup?${params.toString()}`;
+  };
 
   const reason = params.get('reason');
   const reasonMsg: Record<string, string> = {
@@ -61,7 +68,40 @@ function LoginForm() {
     if (!user) return;
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const role = ((profile as any)?.role as UserRole) ?? 'patient';
-    
+
+    const isBookingRedirect = params.get('booking') === 'true';
+    if (isBookingRedirect) {
+      const bookingFirstName = params.get('firstName') || '';
+      const bookingLastName = params.get('lastName') || '';
+      const bookingEmail = params.get('email') || '';
+      const bookingDoctorId = params.get('providerId') || '';
+      const bookingType = params.get('appointmentType') || '';
+      const bookingDate = params.get('date') || '';
+      const bookingTime = params.get('time') || '';
+      const bookingComplaint = params.get('chiefComplaint') || '';
+      const bookingDob = params.get('dob') || '';
+      const bookingGender = params.get('gender') || '';
+      const bookingPhone = params.get('phone') || '';
+
+      try {
+        const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
+        await bookPublicAppointment({
+          firstName: bookingFirstName || user.user_metadata?.first_name || '',
+          lastName: bookingLastName || user.user_metadata?.last_name || '',
+          email: user.email || bookingEmail,
+          phone: bookingPhone,
+          dateOfBirth: bookingDob,
+          gender: bookingGender as any,
+          providerId: bookingDoctorId,
+          appointmentType: bookingType as any,
+          scheduledAt,
+          chiefComplaint: bookingComplaint,
+        });
+      } catch (bookErr: any) {
+        console.error('Failed to auto-finalize booking from login:', bookErr.message);
+      }
+    }
+
     // Redirect handling with next query param validation (Open Redirect protection)
     const nextParam = params.get('next');
     let targetUrl = ROLE_HOME[role];
@@ -90,7 +130,7 @@ function LoginForm() {
       }
     }
 
-    router.push(targetUrl);
+    router.push(isBookingRedirect ? '/portal?booking_success=true' : targetUrl);
     router.refresh();
   };
 
@@ -268,7 +308,7 @@ function LoginForm() {
             <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
               New patient?{' '}
               <Link
-                href="/signup"
+                href={getSignupUrl()}
                 className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
               >
                 Create a portal account
