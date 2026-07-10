@@ -6,6 +6,8 @@ import { formatDate, PRESCRIPTION_STATUS_COLORS } from '@/lib/utils';
 import { Pill, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { PortalOnboardingWarning } from '@/components/PortalOnboardingWarning';
+
 export const metadata: Metadata = { title: 'My Medications' };
 
 export default async function PortalMedicationsPage() {
@@ -14,7 +16,14 @@ export default async function PortalMedicationsPage() {
   if (!user) redirect('/login');
 
   const { data: patient } = await supabase.from('patients').select('id').eq('profile_id', user.id).single();
-  if (!patient) redirect('/portal');
+  if (!patient) {
+    return (
+      <PortalOnboardingWarning 
+        title="Medications List Inactive" 
+        description="To view your active prescriptions, dosages, and refill statuses, you must first complete your onboarding consultation."
+      />
+    );
+  }
 
   const { data: prescriptions } = await supabase
     .from('prescriptions')

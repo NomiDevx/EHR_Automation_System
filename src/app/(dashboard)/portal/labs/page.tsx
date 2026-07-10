@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { FlaskConical } from 'lucide-react';
 import { Card } from '@/components/ui';
 
+import { PortalOnboardingWarning } from '@/components/PortalOnboardingWarning';
+
 export const metadata: Metadata = { title: 'Lab Results' };
 
 export default async function PortalLabsPage() {
@@ -14,7 +16,14 @@ export default async function PortalLabsPage() {
   if (!user) redirect('/login');
 
   const { data: patient } = await supabase.from('patients').select('id').eq('profile_id', user.id).single();
-  if (!patient) redirect('/portal');
+  if (!patient) {
+    return (
+      <PortalOnboardingWarning 
+        title="Laboratory Results Locked" 
+        description="To view your lab orders and diagnostic results, you must first complete your onboarding consultation."
+      />
+    );
+  }
 
   const { data: labOrders } = await supabase
     .from('lab_orders')

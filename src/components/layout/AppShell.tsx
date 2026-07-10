@@ -24,11 +24,13 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/schedule', label: 'Schedule', icon: Calendar },
   ],
   doctor: [
+    { href: '/clinical/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/clinical/patients', label: 'Patients', icon: Users },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
     { href: '/clinical/notes', label: 'Clinical Notes', icon: FileText },
   ],
   nurse: [
+    { href: '/clinical/nurse', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/clinical/patients', label: 'Patients', icon: Users },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
     { href: '/clinical/vitals', label: 'Vitals', icon: Activity },
@@ -75,6 +77,19 @@ export function AppShell({ profile, children }: AppShellProps) {
   const supabase = createClient();
 
   const navItems = NAV_ITEMS[profile.role] ?? [];
+
+  const isLinkActive = (href: string) => {
+    if (
+      href === '/portal' ||
+      href === '/admin' ||
+      href === '/reception' ||
+      href === '/clinical/dashboard' ||
+      href === '/clinical/nurse'
+    ) {
+      return pathname === href;
+    }
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   // ─── Session timeout logic ───────────────────────────────────────────────
   const resetTimer = useCallback(() => {
@@ -176,7 +191,7 @@ export function AppShell({ profile, children }: AppShellProps) {
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
           {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+            const isActive = isLinkActive(href);
             return (
               <Link
                 key={href}
@@ -257,7 +272,9 @@ export function AppShell({ profile, children }: AppShellProps) {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-sm font-semibold text-[hsl(var(--foreground))] hidden sm:block">
-              {navItems.find((item) => pathname.startsWith(item.href))?.label ?? 'MediCore EHR'}
+              {navItems.find((item) => isLinkActive(item.href))?.label ?? 
+               navItems.find((item) => pathname.startsWith(item.href))?.label ?? 
+               'MediCore EHR'}
             </h1>
           </div>
           <div className="flex items-center gap-2">

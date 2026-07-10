@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { PortalRecordsClient } from './client';
 
+import { PortalOnboardingWarning } from '@/components/PortalOnboardingWarning';
+
 export const metadata: Metadata = { title: 'My Health Records | Portal' };
 
 export default async function PortalRecordsPage() {
@@ -17,9 +19,14 @@ export default async function PortalRecordsPage() {
     .eq('profile_id', user.id)
     .single();
 
-  // If they don't have a patient record, they can't log health details yet, redirect them to portal onboarding
+  // If they don't have a patient record, they can't log health details yet, show onboarding warning
   if (!patient) {
-    redirect('/portal');
+    return (
+      <PortalOnboardingWarning 
+        title="Medical Records Restricted" 
+        description="To view your medical history, vitals, allergies, and clinical documentation, you must first complete your onboarding consultation."
+      />
+    );
   }
 
   // 2. Fetch logged vitals

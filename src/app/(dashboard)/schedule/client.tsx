@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatDate, formatDateTime, APPOINTMENT_STATUS_COLORS, humanizeLabel, patientFullName } from '@/lib/utils';
 import type { Appointment, Patient, Profile } from '@/lib/types/database';
-import { Calendar, List, ChevronLeft, ChevronRight, Clock, User } from 'lucide-react';
+import { Calendar, List, ChevronLeft, ChevronRight, Clock, CalendarClock, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { format, startOfWeek, addDays, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns';
+import { AppointmentUpdateModal } from '@/components/AppointmentUpdateModal';
 
 type View = 'week' | 'list';
 
@@ -25,11 +27,18 @@ const STATUS_DOT: Record<string, string> = {
   no_show: 'bg-orange-400',
 };
 
+/** Statuses that are still mutable (can be rescheduled / cancelled) */
+const MUTABLE_STATUSES = new Set(['scheduled', 'confirmed']);
+
 export function ScheduleClient({ appointments, providers, currentUserId }: ScheduleClientProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
   const [view, setView] = useState<View>('week');
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [providerFilter, setProviderFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [editingAppt, setEditingAppt] = useState<(Appointment & { patient: any; provider: any }) | null>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -42,44 +51,84 @@ export function ScheduleClient({ appointments, providers, currentUserId }: Sched
   const apptForDay = (day: Date) =>
     filtered.filter((a) => isSameDay(parseISO(a.scheduled_at), day));
 
+  const handleSuccess = useCallback(() => {
+    startTransition(() => router.refresh());
+  }, [router]);
+
+  const openEdit = (appt: Appointment & { patient: any; provider: any }) => {
+    setEditingAppt(appt);
+  };
+
   return (
     <div className="space-y-4">
-      {/* Controls */}
+      {/* ── Controls ────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex gap-1 border border-[hsl(var(--border))] rounded-lg p-1 self-start">
-          <button onClick={() => setView('week')} className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all', view === 'week' ? 'bg-blue-600 text-white' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
+          <button
+            onClick={() => setView('week')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+              view === 'week' ? 'bg-blue-600 text-white' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
+            )}
+          >
             <Calendar className="w-3.5 h-3.5" /> Week
           </button>
-          <button onClick={() => setView('list')} className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all', view === 'list' ? 'bg-blue-600 text-white' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
+          <button
+            onClick={() => setView('list')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all',
+              view === 'list' ? 'bg-blue-600 text-white' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]',
+            )}
+          >
             <List className="w-3.5 h-3.5" /> List
           </button>
         </div>
 
-        <select value={providerFilter} onChange={e => setProviderFilter(e.target.value)} className="input max-w-[200px]" id="provider-filter">
+        <select
+          value={providerFilter}
+          onChange={e => setProviderFilter(e.target.value)}
+          className="input max-w-[200px]"
+          id="provider-filter"
+        >
           <option value="all">All Providers</option>
-          {providers.map(p => <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>)}
+          {providers.map(p => (
+            <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
+          ))}
         </select>
 
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input max-w-[180px]" id="status-filter">
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="input max-w-[180px]"
+          id="status-filter"
+        >
           <option value="all">All Statuses</option>
-          {['scheduled','confirmed','in_progress','completed','cancelled','no_show'].map(s => (
+          {['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'].map(s => (
             <option key={s} value={s}>{humanizeLabel(s)}</option>
           ))}
         </select>
       </div>
 
-      {/* Week view */}
+      {/* ── Week View ────────────────────────────────────────────── */}
       {view === 'week' && (
         <div className="card p-0 overflow-hidden">
           {/* Week navigator */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[hsl(var(--border))]">
-            <button onClick={() => setWeekStart(subWeeks(weekStart, 1))} className="btn-ghost btn p-1.5" id="prev-week-btn">
+            <button
+              onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+              className="btn-ghost btn p-1.5"
+              id="prev-week-btn"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm font-medium text-[hsl(var(--foreground))]">
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </span>
-            <button onClick={() => setWeekStart(addWeeks(weekStart, 1))} className="btn-ghost btn p-1.5" id="next-week-btn">
+            <button
+              onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+              className="btn-ghost btn p-1.5"
+              id="next-week-btn"
+            >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -101,15 +150,32 @@ export function ScheduleClient({ appointments, providers, currentUserId }: Sched
                   </div>
                   <div className="p-1 space-y-1">
                     {dayAppts.map((a) => (
-                      <Link
-                        key={a.id}
-                        href={`/clinical/patients/${a.patient_id}`}
-                        id={`appt-${a.id}`}
-                        className={cn('block rounded p-1 text-xs leading-tight transition-opacity hover:opacity-80', APPOINTMENT_STATUS_COLORS[a.status])}
-                      >
-                        <p className="font-medium truncate">{a.patient?.last_name}</p>
-                        <p className="opacity-70">{format(parseISO(a.scheduled_at), 'h:mm a')}</p>
-                      </Link>
+                      <div key={a.id} className="group/appt relative">
+                        {/* Main chip — click to patient */}
+                        <Link
+                          href={`/clinical/patients/${a.patient_id}`}
+                          id={`appt-${a.id}`}
+                          className={cn(
+                            'block rounded p-1 text-xs leading-tight transition-opacity hover:opacity-80',
+                            APPOINTMENT_STATUS_COLORS[a.status],
+                          )}
+                        >
+                          <p className="font-medium truncate">{a.patient?.last_name}</p>
+                          <p className="opacity-70">{format(parseISO(a.scheduled_at), 'h:mm a')}</p>
+                        </Link>
+
+                        {/* Edit overlay button (only for mutable statuses) */}
+                        {MUTABLE_STATUSES.has(a.status) && (
+                          <button
+                            onClick={() => openEdit(a)}
+                            id={`week-edit-btn-${a.id}`}
+                            title="Reschedule or cancel"
+                            className="absolute top-0.5 right-0.5 hidden group-hover/appt:flex w-5 h-5 rounded items-center justify-center bg-black/40 text-white hover:bg-black/60 transition-all"
+                          >
+                            <CalendarClock className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                     {dayAppts.length === 0 && (
                       <p className="text-center text-[10px] text-[hsl(var(--muted-foreground))] py-4 opacity-50">—</p>
@@ -122,27 +188,31 @@ export function ScheduleClient({ appointments, providers, currentUserId }: Sched
         </div>
       )}
 
-      {/* List view */}
+      {/* ── List View ────────────────────────────────────────────── */}
       {view === 'list' && (
         <div className="card p-0 overflow-hidden">
           <table className="data-table">
             <thead>
               <tr>
-                <th className="pl-5">Date & Time</th>
+                <th className="pl-5">Date &amp; Time</th>
                 <th>Patient</th>
                 <th>Provider</th>
                 <th>Type</th>
                 <th>Duration</th>
                 <th>Status</th>
                 <th>Complaint</th>
+                <th className="pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((a) => (
-                <tr key={a.id}>
+                <tr key={a.id} className="group/row">
                   <td className="pl-5 text-xs whitespace-nowrap">{formatDateTime(a.scheduled_at)}</td>
                   <td>
-                    <Link href={`/clinical/patients/${a.patient_id}`} className="text-blue-400 hover:text-blue-300 text-sm">
+                    <Link
+                      href={`/clinical/patients/${a.patient_id}`}
+                      className="text-blue-400 hover:text-blue-300 text-sm"
+                    >
                       {a.patient ? `${a.patient.first_name} ${a.patient.last_name}` : '—'}
                     </Link>
                   </td>
@@ -155,15 +225,67 @@ export function ScheduleClient({ appointments, providers, currentUserId }: Sched
                       {a.status}
                     </span>
                   </td>
-                  <td className="text-xs text-[hsl(var(--muted-foreground))] max-w-[160px] truncate">{a.chief_complaint ?? '—'}</td>
+                  <td className="text-xs text-[hsl(var(--muted-foreground))] max-w-[160px] truncate">
+                    {a.chief_complaint ?? '—'}
+                  </td>
+
+                  {/* Actions column */}
+                  <td className="pr-4">
+                    {MUTABLE_STATUSES.has(a.status) ? (
+                      <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                        {/* Reschedule button */}
+                        <button
+                          onClick={() => openEdit(a)}
+                          id={`list-reschedule-btn-${a.id}`}
+                          title="Reschedule"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] text-[11px] font-semibold hover:bg-[hsl(var(--primary))]/20 transition-colors whitespace-nowrap"
+                        >
+                          <CalendarClock className="w-3 h-3 shrink-0" />
+                          Reschedule
+                        </button>
+
+                        {/* Cancel button */}
+                        <button
+                          onClick={() => openEdit(a)}
+                          id={`list-cancel-btn-${a.id}`}
+                          title="Cancel"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-500/8 border border-red-500/20 text-red-400 text-[11px] font-semibold hover:bg-red-500/15 transition-colors"
+                        >
+                          <XCircle className="w-3 h-3 shrink-0" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-[hsl(var(--muted-foreground))] opacity-40">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-sm text-[hsl(var(--muted-foreground))]">No appointments in this range</td></tr>
+                <tr>
+                  <td colSpan={8} className="text-center py-8 text-sm text-[hsl(var(--muted-foreground))]">
+                    No appointments in this range
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* ── Update Modal ─────────────────────────────────────────── */}
+      {editingAppt && (
+        <AppointmentUpdateModal
+          appointmentId={editingAppt.id}
+          currentScheduledAt={editingAppt.scheduled_at}
+          appointmentLabel={
+            editingAppt.patient
+              ? `${editingAppt.patient.first_name} ${editingAppt.patient.last_name}` +
+                (editingAppt.provider ? ` · Dr. ${editingAppt.provider.last_name}` : '')
+              : 'Appointment'
+          }
+          onClose={() => setEditingAppt(null)}
+          onSuccess={handleSuccess}
+        />
       )}
     </div>
   );

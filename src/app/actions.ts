@@ -54,10 +54,18 @@ export interface BookingInput {
 export async function bookPublicAppointment(data: BookingInput) {
   const supabase = createAdminClient();
 
-  // 1. Look up if patient already exists by email and date of birth
+  // ── 1. Look up existing patient (email+DOB, or profile_id link) ──────────
+  // Fetch the portal profile first so we can cross-check by profile_id
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', data.email)
+    .maybeSingle();
+
+  // Try email+DOB lookup first
   const { data: existingPatient, error: lookupError } = await supabase
     .from('patients')
-    .select('id, mrn')
+    .select('id, mrn, profile_id')
     .eq('email', data.email)
     .eq('date_of_birth', data.dateOfBirth)
     .maybeSingle();
@@ -66,47 +74,82 @@ export async function bookPublicAppointment(data: BookingInput) {
     throw new Error(`Failed to lookup patient: ${lookupError.message}`);
   }
 
-  let patientId = existingPatient?.id;
-  let mrn = existingPatient?.mrn;
-
-  // Link profile_id if it exists now
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('email', data.email)
-    .maybeSingle();
-
-  // 2. If patient does not exist, create a new one
-  if (!patientId) {
-    const { data: newPatient, error: createError } = await supabase
+  // Also try profile_id lookup (handles portal users whose DOB may not match
+  // the stored record exactly, or who registered via a different path)
+  let profileLinkedPatient: { id: string; mrn: string; profile_id: string | null } | null = null;
+  if (!existingPatient && profile?.id) {
+    const { data: byProfile } = await supabase
       .from('patients')
-      .insert({
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        date_of_birth: data.dateOfBirth,
-        gender: data.gender,
-        profile_id: profile?.id || null,
-        is_active: true,
-        consent_obtained: true,
-        consent_date: new Date().toISOString(),
-      })
-      .select('id, mrn')
-      .single();
+      .select('id, mrn, profile_id')
+      .eq('profile_id', profile.id)
+      .maybeSingle();
+    profileLinkedPatient = byProfile ?? null;
+  }
 
-    if (createError) {
-      throw new Error(`Failed to register patient: ${createError.message}`);
+  let patientId: string | undefined = existingPatient?.id ?? profileLinkedPatient?.id;
+  let mrn: string | undefined = existingPatient?.mrn ?? profileLinkedPatient?.mrn;
+
+  // ── 2. Create patient if none found — retry up to 3× on MRN collision ────
+  // The mrn_seq may be behind existing data; nextval() always advances so
+  // a second attempt will succeed once the sequence moves past colliding values.
+  if (!patientId) {
+    let newPatient: { id: string; mrn: string } | null = null;
+    let lastCreateError: any = null;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { data: inserted, error: createError } = await supabase
+        .from('patients')
+        .insert({
+          first_name: data.firstName,
+          last_name: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          date_of_birth: data.dateOfBirth,
+          gender: data.gender,
+          profile_id: profile?.id || null,
+          is_active: true,
+          consent_obtained: true,
+          consent_date: new Date().toISOString(),
+        })
+        .select('id, mrn')
+        .single();
+
+      if (!createError) {
+        newPatient = inserted;
+        break;
+      }
+
+      // If the error is NOT an MRN unique-constraint violation, fail immediately
+      const isMrnConflict =
+        createError.code === '23505' &&
+        (createError.message.includes('patients_mrn_key') ||
+          createError.message.includes('mrn'));
+
+      if (!isMrnConflict) {
+        throw new Error(`Failed to register patient: ${createError.message}`);
+      }
+
+      lastCreateError = createError;
+      console.warn(`[bookPublicAppointment] MRN conflict on attempt ${attempt} — retrying…`);
+    }
+
+    if (!newPatient) {
+      throw new Error(
+        `Failed to register patient after 3 attempts (MRN conflict): ${lastCreateError?.message}`,
+      );
     }
 
     patientId = newPatient.id;
     mrn = newPatient.mrn;
-  } else if (profile && !existingPatient?.id) {
-    // Link existing patient if profile wasn't linked
-    await supabase
-      .from('patients')
-      .update({ profile_id: profile.id })
-      .eq('id', patientId);
+  } else {
+    // Ensure the profile_id is linked on the existing record if it wasn't before
+    const existingProfileId = existingPatient?.profile_id ?? profileLinkedPatient?.profile_id;
+    if (profile?.id && !existingProfileId) {
+      await supabase
+        .from('patients')
+        .update({ profile_id: profile.id })
+        .eq('id', patientId);
+    }
   }
 
   // 3. Create the appointment
@@ -194,6 +237,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
 
     const payload = {
       appointment_id: appt.id,
+      notification_target: 'doctor',
       patient_name: `${appt.patient?.first_name} ${appt.patient?.last_name}`,
       patient_email: appt.patient?.email || '',
       patient_phone: appt.patient?.phone || '',
@@ -333,3 +377,95 @@ export async function addPatientAllergy(data: {
   return { success: true, allergy: newAllergy };
 }
 
+
+// ─── Appointment Update (Reschedule / Cancel) ──────────────────────────────────
+
+export interface UpdateAppointmentInput {
+  appointmentId: string;
+  /** New status to set, e.g. 'cancelled' or 'scheduled' */
+  status?: 'scheduled' | 'confirmed' | 'cancelled' | 'no_show';
+  /** ISO string — provide when rescheduling */
+  scheduledAt?: string;
+  /** Optional reason / note appended to the appointment notes */
+  reason?: string;
+}
+
+export async function updateAppointment(
+  input: UpdateAppointmentInput,
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const userSupabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    // 1. Verify authentication
+    const { data: { user } } = await userSupabase.auth.getUser();
+    if (!user) return { error: 'Unauthenticated' };
+
+    // 2. Fetch appointment + caller's profile role
+    const [{ data: appt, error: apptErr }, { data: callerProfile }] = await Promise.all([
+      adminSupabase
+        .from('appointments')
+        .select('id, patient_id, provider_id, scheduled_at, status, notes, patient:patients(profile_id)')
+        .eq('id', input.appointmentId)
+        .single(),
+      userSupabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single(),
+    ]);
+
+    if (apptErr || !appt) return { error: 'Appointment not found' };
+
+    const callerRole = (callerProfile as any)?.role as string | undefined;
+    const isStaff = ['admin', 'doctor', 'nurse', 'receptionist'].includes(callerRole ?? '');
+
+    // 3. Authorisation: staff can edit any appointment;
+    //    patients can only edit their own
+    if (!isStaff) {
+      const patientProfileId = (appt as any).patient?.profile_id;
+      if (patientProfileId !== user.id) {
+        return { error: 'You are not authorised to modify this appointment' };
+      }
+    }
+
+    // 4. Build update payload
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (input.status) updateData.status = input.status;
+    if (input.scheduledAt) updateData.scheduled_at = input.scheduledAt;
+
+    if (input.reason?.trim()) {
+      const existingNotes = (appt as any).notes || '';
+      const timestamp = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+      const prefix = input.status === 'cancelled' ? 'Cancellation reason' : 'Reschedule reason';
+      updateData.notes = existingNotes
+        ? `${existingNotes}\n\n[${timestamp}] ${prefix}: ${input.reason.trim()}`
+        : `[${timestamp}] ${prefix}: ${input.reason.trim()}`;
+    }
+
+    // 5. Perform update
+    const { error: updateErr } = await adminSupabase
+      .from('appointments')
+      .update(updateData)
+      .eq('id', input.appointmentId);
+
+    if (updateErr) return { error: `Failed to update appointment: ${updateErr.message}` };
+
+    // 6. If rescheduled, re-trigger doctor notification webhook
+    if (input.scheduledAt && input.status !== 'cancelled') {
+      try {
+        await triggerWebhookForAppointment(input.appointmentId);
+      } catch (webhookErr: any) {
+        console.error('[updateAppointment] Webhook re-trigger failed:', webhookErr.message);
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[updateAppointment]', err);
+    return { error: err?.message || 'An unexpected error occurred' };
+  }
+}

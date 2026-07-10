@@ -5,8 +5,8 @@ import type { UserRole } from '@/lib/types/database';
 
 const ROLE_HOME: Record<UserRole, string> = {
   admin: '/admin',
-  doctor: '/clinical/patients',
-  nurse: '/clinical/patients',
+  doctor: '/clinical/dashboard',
+  nurse: '/clinical/nurse',
   receptionist: '/reception',
   patient: '/portal',
 };

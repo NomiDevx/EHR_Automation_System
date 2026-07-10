@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import type { AppointmentStatus } from '@/lib/types/database';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { formatDate, APPOINTMENT_STATUS_COLORS, humanizeLabel } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { PortalBookingClient } from '@/components/PortalBookingClient';
+import { PortalAppointmentsClient } from './client';
+import { Calendar } from 'lucide-react';
 
 export const metadata: Metadata = { title: 'My Appointments' };
 
@@ -12,70 +12,88 @@ export default async function PortalAppointmentsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: patient } = await supabase.from('patients').select('id').eq('profile_id', user.id).single();
-  if (!patient) redirect('/portal');
+  // ── Always fetch profile + doctors in parallel ───────────────────
+  const adminSupabase = createAdminClient();
 
-  const { data: appointments } = await supabase
+  const [{ data: patient }, { data: profileData }, { data: doctorsData }] = await Promise.all([
+    supabase.from('patients').select('id').eq('profile_id', user.id).single(),
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    adminSupabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'doctor')
+      .eq('is_active', true)
+      .order('last_name', { ascending: true }),
+  ]);
+
+  if (!profileData) redirect('/login');
+
+  const doctors = doctorsData ?? [];
+
+  // ── No patient record yet — onboarding booking flow ─────────────
+  if (!patient) {
+    return (
+      <div className="space-y-8 max-w-4xl mx-auto py-6 animate-fade-in">
+        <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20 p-6 flex flex-col items-center text-center gap-2">
+          <Calendar className="w-12 h-12 text-blue-400 animate-pulse" />
+          <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
+            Schedule Your Onboarding Consultation
+          </h1>
+          <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-md">
+            To activate your patient portal and view future appointments, please schedule your
+            initial onboarding consultation below.
+          </p>
+        </div>
+        <PortalBookingClient doctors={doctors} profile={profileData} />
+      </div>
+    );
+  }
+
+  // ── Patient exists — fetch full appointment history via admin client ─
+  // The user supabase client relies on RLS (is_own_patient_record → profile_id match).
+  // If profile_id wasn't linked yet on some records the query silently returns [].
+  // We already proved this is the patient's own record via the profile_id lookup above,
+  // so using adminSupabase here is safe and always returns the complete history.
+  const { data: appointments } = await adminSupabase
     .from('appointments')
     .select('*, provider:profiles(first_name, last_name, specialty)')
     .eq('patient_id', patient.id)
     .order('scheduled_at', { ascending: false });
 
-  const upcoming = appointments?.filter((a: any) => new Date(a.scheduled_at) > new Date() && !['cancelled','no_show'].includes(a.status)) ?? [];
-  const past = appointments?.filter((a: any) => new Date(a.scheduled_at) <= new Date() || ['cancelled','no_show'].includes(a.status)) ?? [];
+
+  const now = new Date();
+
+  const upcoming = (appointments ?? []).filter(
+    (a: any) =>
+      new Date(a.scheduled_at) > now &&
+      !['cancelled', 'no_show'].includes(a.status),
+  );
+
+  const past = (appointments ?? []).filter(
+    (a: any) =>
+      new Date(a.scheduled_at) <= now ||
+      ['cancelled', 'no_show'].includes(a.status),
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">My Appointments</h1>
-
-      {upcoming.length > 0 && (
+      {/* Header */}
+      <div className="section-header">
         <div>
-          <h2 className="section-title mb-3">Upcoming</h2>
-          <div className="space-y-3">
-            {upcoming.map((a: any) => (
-              <div key={a.id} className="card-hover flex items-center gap-4">
-                <div className="text-center min-w-[60px] rounded-lg bg-blue-500/10 border border-blue-500/20 py-2">
-                  <p className="text-lg font-bold text-blue-300">{formatDate(a.scheduled_at, 'd')}</p>
-                  <p className="text-xs text-blue-400/70">{formatDate(a.scheduled_at, 'MMM yyyy')}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold">{a.chief_complaint ?? humanizeLabel(a.type)}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Dr. {(a.provider as any)?.last_name} · {(a.provider as any)?.specialty}
-                  </p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatDate(a.scheduled_at, 'h:mm a')} · {a.duration_mins} min</p>
-                </div>
-                <span className={cn('badge text-xs', APPOINTMENT_STATUS_COLORS[a.status as AppointmentStatus])}>{a.status}</span>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">My Appointments</h1>
+          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+            {upcoming.length} upcoming · {past.length} past
+          </p>
         </div>
-      )}
+      </div>
 
-      {past.length > 0 && (
-        <div>
-          <h2 className="section-title mb-3">Past Visits</h2>
-          <table className="data-table">
-            <thead><tr><th>Date</th><th>Provider</th><th>Type</th><th>Status</th></tr></thead>
-            <tbody>
-              {past.map((a: any) => (
-                <tr key={a.id}>
-                  <td>{formatDate(a.scheduled_at, 'MMM d, yyyy h:mm a')}</td>
-                  <td>Dr. {(a.provider as any)?.last_name}</td>
-                  <td>{humanizeLabel(a.type)}</td>
-                  <td><span className={cn('badge text-xs', APPOINTMENT_STATUS_COLORS[a.status as AppointmentStatus])}>{a.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {!appointments?.length && (
-        <div className="text-center py-16">
-          <p className="text-sm text-[hsl(var(--muted-foreground))]">No appointments on record</p>
-        </div>
-      )}
+      {/* Appointments list + inline booking panel */}
+      <PortalAppointmentsClient
+        upcoming={upcoming as any}
+        past={past as any}
+        doctors={doctors}
+        profile={profileData}
+      />
     </div>
   );
 }
