@@ -234,7 +234,7 @@ export default async function PortalPage() {
     { data: activeMeds },
     { data: unreadMessages },
   ] = await Promise.all([
-    adminSupabase.from('appointments').select('*, provider:profiles(first_name, last_name, specialty)')
+    adminSupabase.from('appointments').select('*, provider:profiles!appointments_provider_id_fkey(first_name, last_name, specialty)')
       .eq('patient_id', patient.id).gte('scheduled_at', new Date().toISOString())
       .in('status', ['scheduled', 'confirmed']).order('scheduled_at').limit(3),
     adminSupabase.from('clinical_notes').select('*, provider:profiles(first_name, last_name)')

@@ -29,12 +29,14 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/clinical/patients', label: 'Patients', icon: Users },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
     { href: '/clinical/notes', label: 'Clinical Notes', icon: FileText },
+    { href: '/clinical/messages', label: 'Messages', icon: MessageSquare },
   ],
   nurse: [
     { href: '/clinical/nurse', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/clinical/patients', label: 'Patients', icon: Users },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
     { href: '/clinical/vitals', label: 'Vitals', icon: Activity },
+    { href: '/clinical/messages', label: 'Messages', icon: MessageSquare },
   ],
   receptionist: [
     { href: '/reception', label: 'Dashboard', icon: LayoutDashboard },
@@ -142,7 +144,8 @@ export function AppShell({ profile, children }: AppShellProps) {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    router.refresh();
+    window.location.href = '/login';
   };
 
   const roleColor: Record<UserRole, string> = {

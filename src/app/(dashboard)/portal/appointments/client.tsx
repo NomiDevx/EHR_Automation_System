@@ -358,8 +358,8 @@ export function PortalAppointmentsClient({
                     {a.status}
                   </span>
 
-                  {/* Edit buttons — hover revealed */}
-                  <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {/* Edit buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       id={`reschedule-btn-${a.id}`}
                       onClick={() => setEditingAppt(a)}

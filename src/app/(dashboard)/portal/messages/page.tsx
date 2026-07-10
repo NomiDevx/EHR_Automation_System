@@ -5,7 +5,11 @@ import { MessagesClient } from './client';
 
 export const metadata: Metadata = { title: 'Messages' };
 
-export default async function PortalMessagesPage() {
+export default async function PortalMessagesPage({
+  searchParams,
+}: {
+  searchParams: { to?: string };
+}) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -28,6 +32,8 @@ export default async function PortalMessagesPage() {
     .eq('is_active', true)
     .order('last_name', { ascending: true });
 
+  const defaultRecipientId = searchParams?.to || '';
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Messages</h1>
@@ -36,6 +42,7 @@ export default async function PortalMessagesPage() {
         currentUserId={user.id}
         providers={providers ?? []}
         patientId={patient?.id ?? null}
+        defaultRecipientId={defaultRecipientId}
       />
     </div>
   );

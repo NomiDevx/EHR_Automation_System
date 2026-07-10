@@ -149,34 +149,38 @@ export function ScheduleClient({ appointments, providers, currentUserId }: Sched
                     </p>
                   </div>
                   <div className="p-1 space-y-1">
-                    {dayAppts.map((a) => (
-                      <div key={a.id} className="group/appt relative">
-                        {/* Main chip — click to patient */}
-                        <Link
-                          href={`/clinical/patients/${a.patient_id}`}
-                          id={`appt-${a.id}`}
-                          className={cn(
-                            'block rounded p-1 text-xs leading-tight transition-opacity hover:opacity-80',
-                            APPOINTMENT_STATUS_COLORS[a.status],
-                          )}
-                        >
-                          <p className="font-medium truncate">{a.patient?.last_name}</p>
-                          <p className="opacity-70">{format(parseISO(a.scheduled_at), 'h:mm a')}</p>
-                        </Link>
-
-                        {/* Edit overlay button (only for mutable statuses) */}
-                        {MUTABLE_STATUSES.has(a.status) && (
-                          <button
-                            onClick={() => openEdit(a)}
-                            id={`week-edit-btn-${a.id}`}
-                            title="Reschedule or cancel"
-                            className="absolute top-0.5 right-0.5 hidden group-hover/appt:flex w-5 h-5 rounded items-center justify-center bg-black/40 text-white hover:bg-black/60 transition-all"
+                    {dayAppts.map((a) => {
+                      const timeLabel = format(parseISO(a.scheduled_at), 'h:mm a');
+                      const ptName = a.patient ? `${a.patient.first_name} ${a.patient.last_name}` : '—';
+                      return (
+                        <div key={a.id} className="group/appt relative border border-[hsl(var(--border))]/40 rounded p-1.5 bg-[hsl(var(--surface-hover))]">
+                          {/* Main chip — click to patient */}
+                          <Link
+                            href={`/clinical/patients/${a.patient_id}`}
+                            id={`appt-${a.id}`}
+                            className={cn(
+                              'block rounded p-1 text-[11px] font-semibold leading-tight hover:opacity-80 transition-opacity pr-6',
+                              APPOINTMENT_STATUS_COLORS[a.status],
+                            )}
                           >
-                            <CalendarClock className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                            <p className="truncate">{ptName}</p>
+                            <p className="opacity-80 mt-0.5 text-[9px] font-medium">{timeLabel}</p>
+                          </Link>
+
+                          {/* Edit button (only for mutable statuses) — clearly visible option */}
+                          {MUTABLE_STATUSES.has(a.status) && (
+                            <button
+                              onClick={() => openEdit(a)}
+                              id={`week-edit-btn-${a.id}`}
+                              title="Reschedule or cancel"
+                              className="absolute top-1.5 right-1.5 p-1 rounded bg-[hsl(var(--primary))]/10 border border-[hsl(var(--primary))]/20 text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/25 transition-all shadow-sm flex items-center justify-center"
+                            >
+                              <CalendarClock className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                     {dayAppts.length === 0 && (
                       <p className="text-center text-[10px] text-[hsl(var(--muted-foreground))] py-4 opacity-50">—</p>
                     )}

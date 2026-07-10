@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { formatDate, calculateAge, ALLERGY_SEVERITY_COLORS, PRESCRIPTION_STATUS_COLORS, LAB_FLAG_COLORS } from '@/lib/utils';
 import { PatientChartTabs } from './tabs';
 import { Avatar, Badge } from '@/components/ui';
-import { AlertTriangle, Phone, MapPin, Heart, Calendar, FileText, Plus } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, Heart, Calendar, FileText, Plus, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -90,6 +90,14 @@ export default async function PatientChartPage({ params }: { params: Promise<{ i
                   className="btn-secondary btn text-xs"
                 >
                   + Rx
+                </Link>
+                <Link
+                  href={`/clinical/messages?to=${id}`}
+                  id="message-patient-btn"
+                  className="btn-secondary btn text-xs flex items-center gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Message
                 </Link>
               </div>
             </div>

@@ -8,7 +8,7 @@ import {
   Users, Calendar, FileText, FlaskConical,
   ChevronRight, Clock, CheckCircle2, AlertTriangle,
   Stethoscope, PenLine, Plus, LayoutDashboard,
-  Activity, TrendingUp, ClipboardList,
+  Activity, TrendingUp, ClipboardList, MessageSquare,
 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import type { LabResultFlag, AppointmentStatus } from '@/lib/types/database';
@@ -205,6 +205,13 @@ export default async function DoctorDashboardPage() {
                       <span className={cn('badge text-xs', APPOINTMENT_STATUS_COLORS[a.status as AppointmentStatus])}>
                         {a.status}
                       </span>
+                      <Link
+                        href={`/clinical/messages?to=${a.patient_id}`}
+                        className="p-1 rounded hover:bg-[hsl(var(--surface-hover))] text-[hsl(var(--muted-foreground))] hover:text-blue-400 transition-colors"
+                        title="Send secure message to patient"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </Link>
                       <ChevronRight className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))] opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </Link>
@@ -352,6 +359,13 @@ export default async function DoctorDashboardPage() {
                   <span className={cn('badge text-[10px] shrink-0', APPOINTMENT_STATUS_COLORS[a.status as AppointmentStatus])}>
                     {a.status}
                   </span>
+                  <Link
+                    href={`/clinical/messages?to=${a.patient_id}`}
+                    className="p-1 rounded hover:bg-[hsl(var(--surface-hover))] text-[hsl(var(--muted-foreground))] hover:text-blue-400 transition-colors shrink-0"
+                    title="Send secure message to patient"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </Link>
                 </Link>
               ))}
             </div>
@@ -360,12 +374,13 @@ export default async function DoctorDashboardPage() {
       </div>
 
       {/* ── Quick Actions ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
           { href: '/clinical/patients', label: 'View All Patients', icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
           { href: '/schedule', label: 'Full Schedule', icon: Calendar, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
           { href: '/clinical/notes', label: 'Clinical Notes', icon: FileText, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
           { href: '/clinical/patients', label: 'Patient Records', icon: ClipboardList, color: 'text-teal-400', bg: 'bg-teal-500/10 border-teal-500/20' },
+          { href: '/clinical/messages', label: 'Patient Messages', icon: MessageSquare, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
         ].map(({ href, label, icon: Icon, color, bg }) => (
           <Link
             key={href}

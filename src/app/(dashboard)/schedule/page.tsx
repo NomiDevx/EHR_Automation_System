@@ -16,7 +16,7 @@ export default async function SchedulePage() {
 
   const { data: appointments } = await supabase
     .from('appointments')
-    .select('*, patient:patients(first_name, last_name, mrn), provider:profiles(first_name, last_name)')
+    .select('*, patient:patients(first_name, last_name, mrn), provider:profiles!appointments_provider_id_fkey(first_name, last_name)')
     .gte('scheduled_at', start)
     .lte('scheduled_at', end)
     .order('scheduled_at', { ascending: true });

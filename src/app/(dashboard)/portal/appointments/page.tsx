@@ -56,7 +56,7 @@ export default async function PortalAppointmentsPage() {
   // so using adminSupabase here is safe and always returns the complete history.
   const { data: appointments } = await adminSupabase
     .from('appointments')
-    .select('*, provider:profiles(first_name, last_name, specialty)')
+    .select('*, provider:profiles!appointments_provider_id_fkey(first_name, last_name, specialty)')
     .eq('patient_id', patient.id)
     .order('scheduled_at', { ascending: false });
 

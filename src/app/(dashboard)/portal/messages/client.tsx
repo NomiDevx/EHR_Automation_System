@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatRelative } from '@/lib/utils';
 import { Button, Input, Textarea } from '@/components/ui';
@@ -13,11 +13,19 @@ interface MessagesClientProps {
   currentUserId: string;
   providers: { id: string; first_name: string; last_name: string; specialty: string | null }[];
   patientId: string | null;
+  defaultRecipientId?: string;
 }
 
-export function MessagesClient({ messages, currentUserId, providers, patientId }: MessagesClientProps) {
-  const [composing, setComposing] = useState(false);
-  const [form, setForm] = useState({ recipient_id: '', subject: '', body: '' });
+export function MessagesClient({ messages, currentUserId, providers, patientId, defaultRecipientId = '' }: MessagesClientProps) {
+  const [composing, setComposing] = useState(!!defaultRecipientId);
+  const [form, setForm] = useState({ recipient_id: defaultRecipientId, subject: '', body: '' });
+
+  useEffect(() => {
+    if (defaultRecipientId) {
+      setForm(f => ({ ...f, recipient_id: defaultRecipientId }));
+      setComposing(true);
+    }
+  }, [defaultRecipientId]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
