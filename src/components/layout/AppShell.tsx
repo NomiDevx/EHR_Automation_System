@@ -14,6 +14,7 @@ import {
   Menu, X
 } from 'lucide-react';
 import { Avatar, Spinner } from '@/components/ui';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // ─── Nav item definitions per role ──────────────────────────────────────────
 const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.ElementType }[]> = {
@@ -278,6 +279,7 @@ export function AppShell({ profile, children }: AppShellProps) {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <button className="btn-ghost p-1.5 relative" id="notifications-btn" title="Notifications">
               <Bell className="w-4 h-4" />
             </button>
