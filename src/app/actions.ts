@@ -474,3 +474,211 @@ export async function updateAppointment(
     return { error: err?.message || 'An unexpected error occurred' };
   }
 }
+
+// ─── Admin User Management Actions ──────────────────────────────────────────────
+
+export async function adminCreateUser(data: {
+  email: string;
+  password?: string;
+  firstName: string;
+  lastName: string;
+  role: 'admin' | 'doctor' | 'nurse' | 'receptionist' | 'patient';
+  phone?: string;
+  specialty?: string;
+  department?: string;
+  npiNumber?: string;
+}): Promise<{ success: true; userId: string } | { error: string }> {
+  try {
+    const adminSupabase = createAdminClient();
+
+    // Verify requesting user is admin
+    const userSupabase = await createClient();
+    const { data: { user: requester } } = await userSupabase.auth.getUser();
+    if (!requester) return { error: 'Unauthenticated' };
+    const { data: reqProfile } = await userSupabase.from('profiles').select('role').eq('id', requester.id).single();
+    if ((reqProfile as any)?.role !== 'admin') {
+      return { error: 'Unauthorized: Admins only' };
+    }
+
+    const { data: authData, error: authError } = await adminSupabase.auth.admin.createUser({
+      email: data.email,
+      password: data.password || 'TempPassword@123',
+      user_metadata: { first_name: data.firstName, last_name: data.lastName, role: data.role },
+      email_confirm: true,
+    });
+
+    if (authError || !authData?.user) {
+      return { error: authError?.message || 'Failed to create user' };
+    }
+
+    const userId = authData.user.id;
+
+    // Update public.profiles with the extra fields (since the trigger handle_new_user only covers first_name, last_name, role)
+    const { error: profileError } = await adminSupabase
+      .from('profiles')
+      .update({
+        phone: data.phone || null,
+        specialty: data.specialty || null,
+        department: data.department || null,
+        npi_number: data.npiNumber || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (profileError) {
+      return { error: `User authenticated but profile update failed: ${profileError.message}` };
+    }
+
+    // Log this action to audit logs
+    await adminSupabase.from('audit_logs').insert({
+      actor_id: requester.id,
+      action: 'create',
+      table_name: 'profiles',
+      record_id: userId,
+      changes: { new: { email: data.email, role: data.role } },
+    });
+
+    return { success: true, userId };
+  } catch (err: any) {
+    console.error('[adminCreateUser]', err);
+    return { error: err?.message || 'An unexpected error occurred' };
+  }
+}
+
+export async function adminUpdateUser(
+  userId: string,
+  data: {
+    firstName: string;
+    lastName: string;
+    role: 'admin' | 'doctor' | 'nurse' | 'receptionist' | 'patient';
+    phone?: string;
+    specialty?: string;
+    department?: string;
+    npiNumber?: string;
+    isActive: boolean;
+  }
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const adminSupabase = createAdminClient();
+
+    // Verify requesting user is admin
+    const userSupabase = await createClient();
+    const { data: { user: requester } } = await userSupabase.auth.getUser();
+    if (!requester) return { error: 'Unauthenticated' };
+    const { data: reqProfile } = await userSupabase.from('profiles').select('role').eq('id', requester.id).single();
+    if ((reqProfile as any)?.role !== 'admin') {
+      return { error: 'Unauthorized: Admins only' };
+    }
+
+    // Prevent self-deactivation or self-demotion
+    if (requester.id === userId) {
+      if (!data.isActive) {
+        return { error: 'Cannot deactivate your own admin account' };
+      }
+      if (data.role !== 'admin') {
+        return { error: 'Cannot change your own role' };
+      }
+    }
+
+    // Update profiles first
+    const { error: profileError } = await adminSupabase
+      .from('profiles')
+      .update({
+        first_name: data.firstName,
+        last_name: data.lastName,
+        role: data.role,
+        phone: data.phone || null,
+        specialty: data.specialty || null,
+        department: data.department || null,
+        npi_number: data.npiNumber || null,
+        is_active: data.isActive,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (profileError) {
+      return { error: `Failed to update profile: ${profileError.message}` };
+    }
+
+    // Update GoTrue auth user (metadata and ban status)
+    const { error: authError } = await adminSupabase.auth.admin.updateUserById(userId, {
+      user_metadata: { first_name: data.firstName, last_name: data.lastName, role: data.role },
+      ban_duration: data.isActive ? 'none' : 'infinite',
+    });
+
+    if (authError) {
+      return { error: `Profile updated, but auth sync failed: ${authError.message}` };
+    }
+
+    // Log to audit logs
+    await adminSupabase.from('audit_logs').insert({
+      actor_id: requester.id,
+      action: 'update',
+      table_name: 'profiles',
+      record_id: userId,
+      changes: { new: { role: data.role, is_active: data.isActive } },
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[adminUpdateUser]', err);
+    return { error: err?.message || 'An unexpected error occurred' };
+  }
+}
+
+export async function getSystemActivityStats(): Promise<{ date: string; count: number }[]> {
+  try {
+    const supabase = createAdminClient();
+
+    // Verify requesting user is admin
+    const userSupabase = await createClient();
+    const { data: { user: requester } } = await userSupabase.auth.getUser();
+    if (!requester) throw new Error('Unauthenticated');
+    const { data: reqProfile } = await userSupabase.from('profiles').select('role').eq('id', requester.id).single();
+    if ((reqProfile as any)?.role !== 'admin') {
+      throw new Error('Unauthorized: Admins only');
+    }
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const { data: logs, error } = await supabase
+      .from('audit_logs')
+      .select('created_at')
+      .gte('created_at', sevenDaysAgo.toISOString())
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(`Failed to fetch activity logs: ${error.message}`);
+    }
+
+    // Initialize counts for the last 7 days
+    const dailyCounts: Record<string, number> = {};
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      dailyCounts[dateStr] = 0;
+    }
+
+    // Populate counts from logs
+    logs?.forEach((log: { created_at: string }) => {
+      const dateStr = log.created_at.split('T')[0];
+      if (dailyCounts[dateStr] !== undefined) {
+        dailyCounts[dateStr]++;
+      }
+    });
+
+    // Format for Recharts
+    const result = Object.entries(dailyCounts)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return result;
+  } catch (err: any) {
+    console.error('[getSystemActivityStats]', err);
+    return [];
+  }
+}
+

@@ -9,8 +9,9 @@ import {
   Shield, TrendingUp, AlertTriangle, CheckCircle2, Clock
 } from 'lucide-react';
 import { Card } from '@/components/ui';
-import { getWebhookUrl } from '@/app/actions';
+import { getWebhookUrl, getSystemActivityStats } from '@/app/actions';
 import { AdminSettings } from '@/components/AdminSettings';
+import { ActivityChart } from './ActivityChart';
 
 export const metadata: Metadata = { title: 'Admin Dashboard' };
 
@@ -52,6 +53,7 @@ export default async function AdminDashboard() {
 
   const stats = await getAdminStats(supabase);
   const webhookUrl = await getWebhookUrl();
+  const activityData = await getSystemActivityStats();
 
   const statCards = [
     { label: 'Active Patients', value: stats.totalPatients ?? 0, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
@@ -115,6 +117,9 @@ export default async function AdminDashboard() {
           </div>
         </Link>
       </div>
+
+      {/* System Activity Chart */}
+      <ActivityChart data={activityData} />
 
       {/* Two columns: Audit log + Recent users */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
