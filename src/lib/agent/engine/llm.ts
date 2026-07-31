@@ -34,11 +34,12 @@ export async function callLLMWithStructuredOutput(
 
     const response = await groq.chat.completions.create({
       model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      messages,
+      messages: messages as any,
       response_format: { type: 'json_object' },
       temperature: 0.3,
       max_tokens: 512,
     });
+
 
     const content = response.choices[0]?.message?.content || '{}';
     const parsed = JSON.parse(content) as TurnOutput;
