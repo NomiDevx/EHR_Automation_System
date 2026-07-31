@@ -159,12 +159,12 @@ export async function bookAppointment(params: {
       .from('appointments')
       .insert({
         patient_id: params.patientId,
-        doctor_id: doctorId,
-        start_time: params.slotIso,
-        end_time: new Date(new Date(params.slotIso).getTime() + 30 * 60000).toISOString(),
+        provider_id: doctorId,
+        scheduled_at: params.slotIso,
+        duration_mins: 30,
         type: params.appointmentType || 'follow_up',
         status: 'scheduled',
-        reason: 'Booked via AI Assistant',
+        chief_complaint: 'Booked via AI Assistant',
       })
       .select('id')
       .single();
@@ -172,6 +172,14 @@ export async function bookAppointment(params: {
     if (error) {
       console.error('[bookAppointment] Supabase insert error:', error);
       return { success: false, reason: error.message };
+    }
+
+    // Trigger n8n notification webhook
+    try {
+      const { triggerWebhookForAppointment } = await import('@/app/actions');
+      await triggerWebhookForAppointment(data.id);
+    } catch (whErr: any) {
+      console.error('[bookAppointment] Webhook trigger error:', whErr.message);
     }
 
     return { success: true, appointmentId: data.id };

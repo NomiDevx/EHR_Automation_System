@@ -278,7 +278,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
 
     const { data: appt, error } = await supabase
       .from('appointments')
-      .select('*, patient:patients(*), provider:profiles!appointments_provider_id_fkey(*)')
+      .select('*, patient:patients(*)')
       .eq('id', appointmentId)
       .single();
 
@@ -287,20 +287,31 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       return { success: false, reason: 'Appointment not found' };
     }
 
+    // Fetch provider profile directly by provider_id
+    let provider: any = null;
+    if (appt.provider_id) {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', appt.provider_id)
+        .maybeSingle();
+      if (p) provider = p;
+    }
+
     const dbWebhookUrl = await getWebhookUrl();
     const webhookUrl = dbWebhookUrl || process.env.N8N_WEBHOOK_URL || 'https://simadi6690.app.n8n.cloud/webhook-test/book-appointment';
 
     const payload = {
       appointment_id: appt.id,
       notification_target: 'doctor',
-      patient_name: `${appt.patient?.first_name} ${appt.patient?.last_name}`,
+      patient_name: `${appt.patient?.first_name || ''} ${appt.patient?.last_name || ''}`.trim() || 'Patient',
       patient_email: appt.patient?.email || '',
       patient_phone: appt.patient?.phone || '',
       patient_dob: appt.patient?.date_of_birth || '',
-      doctor_name: `Dr. ${appt.provider?.first_name} ${appt.provider?.last_name}`,
-      doctor_email: appt.provider?.email || '',
-      doctor_specialty: appt.provider?.specialty || 'General Practitioner',
-      doctor_department: appt.provider?.department || 'Clinical Care',
+      doctor_name: provider ? `Dr. ${provider.first_name || ''} ${provider.last_name || ''}`.trim() : 'Doctor',
+      doctor_email: provider?.email || '',
+      doctor_specialty: provider?.specialty || 'General Practitioner',
+      doctor_department: provider?.department || 'Clinical Care',
       visit_type: appt.type,
       scheduled_at: appt.scheduled_at,
       duration_mins: appt.duration_mins,
@@ -308,7 +319,8 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       portal_url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
     };
 
-    // Perform the POST webhook trigger and await the response to ensure it completes in server action environment
+    console.log(`[Webhook Trigger] Sending payload to ${webhookUrl}:`, payload);
+
     try {
       const res = await fetch(webhookUrl, {
         method: 'POST',
@@ -320,14 +332,14 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       } else {
         console.log(`Webhook triggered successfully to ${webhookUrl}`);
       }
+      return { success: true };
     } catch (fetchErr: any) {
       console.error('Webhook fetch failed:', fetchErr.message);
+      return { success: false, reason: fetchErr.message };
     }
-
-    return { success: true };
   } catch (err: any) {
     console.error('Failed to execute triggerWebhookForAppointment:', err.message);
-    return { success: false, error: err.message };
+    return { success: false, reason: err.message };
   }
 }
 
