@@ -57,7 +57,10 @@ Ensure `.env.local` contains:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_AGENT_API_URL=http://localhost:8000
 ```
+
+`NEXT_PUBLIC_AGENT_API_URL` is the base URL of the external FastAPI appointment assistant. The chat UI at `/assistant` sends messages to `{NEXT_PUBLIC_AGENT_API_URL}/chat`.
 
 ### 3. Run Database Migrations
 

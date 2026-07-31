@@ -17,6 +17,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
   const navLinks = [
     { href: '/', label: 'Home' },
+    { href: '/assistant', label: 'Book with Assistant' },
     { href: '/#doctors-section', label: 'Our Doctors' },
     { href: '/about', label: 'About Us' },
     { href: '/contact', label: 'Contact' },

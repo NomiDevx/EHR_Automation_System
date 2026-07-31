@@ -240,3 +240,44 @@ body {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
+
+/* ─── Senior-friendly chat accessibility modes (scoped to chat root) ─────────── */
+[data-large-font="true"] {
+  font-size: 1.25rem;
+  line-height: 1.7;
+}
+
+[data-large-font="true"] .input,
+[data-large-font="true"] button {
+  font-size: 1.125rem;
+}
+
+[data-large-font="true"] .min-h-\[44px\] {
+  min-height: 52px;
+}
+
+[data-high-contrast="true"] {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --surface: 0 0% 100%;
+  --surface-hover: 0 0% 95%;
+  --border: 0 0% 0%;
+  --border-muted: 0 0% 20%;
+  --muted-foreground: 0 0% 15%;
+  --primary: 240 100% 25%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 45 100% 35%;
+  --accent-foreground: 0 0% 0%;
+}
+
+[data-high-contrast="true"] .input,
+[data-high-contrast="true"] button,
+[data-high-contrast="true"] [class*="rounded-2xl"] {
+  border-width: 2px;
+}
+
+[data-high-contrast="true"] button:focus-visible,
+[data-high-contrast="true"] .input:focus-visible {
+  outline: 3px solid hsl(240 100% 25%);
+  outline-offset: 2px;
+}

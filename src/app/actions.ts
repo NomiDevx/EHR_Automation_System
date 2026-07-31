@@ -231,7 +231,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       return { success: false, reason: 'Appointment not found' };
     }
 
-    const webhookUrl = 'https://july102026.app.n8n.cloud/webhook/book-appointment';
+    const webhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook-test/book-appointment';
 
     const payload = {
       appointment_id: appt.id,
@@ -678,6 +678,66 @@ export async function getSystemActivityStats(): Promise<{ date: string; count: n
     return result;
   } catch (err: any) {
     console.error('[getSystemActivityStats]', err);
+    return [];
+  }
+}
+
+// ─── Chat History Action ──────────────────────────────────────────────────────
+
+export async function getUserChatHistory(): Promise<{
+  sessionId: string;
+  createdAt: string;
+  messages: {
+    id: string;
+    senderRole: 'user' | 'agent';
+    text: string;
+    createdAt: string;
+  }[];
+}[]> {
+  try {
+    const userSupabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    const { data: { user } } = await userSupabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: logs, error } = await adminSupabase
+      .from('agent_chat_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true });
+
+    if (error || !logs || logs.length === 0) return [];
+
+    // Group logs by session_id
+    const sessionsMap: Record<string, {
+      sessionId: string;
+      createdAt: string;
+      messages: { id: string; senderRole: 'user' | 'agent'; text: string; createdAt: string }[];
+    }> = {};
+
+    for (const log of logs) {
+      const sid = log.session_id;
+      if (!sessionsMap[sid]) {
+        sessionsMap[sid] = {
+          sessionId: sid,
+          createdAt: log.created_at,
+          messages: [],
+        };
+      }
+      sessionsMap[sid].messages.push({
+        id: log.id,
+        senderRole: log.sender_role as 'user' | 'agent',
+        text: log.message_text,
+        createdAt: log.created_at,
+      });
+    }
+
+    return Object.values(sessionsMap).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch (err: any) {
+    console.error('[getUserChatHistory]', err);
     return [];
   }
 }

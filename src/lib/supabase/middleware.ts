@@ -18,6 +18,7 @@ const ROUTE_ROLES: [string, UserRole[]][] = [
   ['/clinical', ['admin', 'doctor', 'nurse']],
   ['/reception', ['admin', 'receptionist']],
   ['/portal', ['patient']],
+  ['/assistant', ['admin', 'doctor', 'nurse', 'receptionist', 'patient']],
   ['/schedule', ['admin', 'doctor', 'nurse', 'receptionist']],
 ];
 

@@ -11,7 +11,7 @@ import {
   Pill, FlaskConical, Receipt, MessageSquare, Shield,
   ChevronLeft, ChevronRight, LogOut, Settings, Bell,
   HeartPulse, Home, FolderOpen, ClipboardList, AlertTriangle,
-  Menu, X
+  Menu, X, Bot
 } from 'lucide-react';
 import { Avatar, Spinner } from '@/components/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -23,6 +23,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/admin/users', label: 'User Management', icon: Users },
     { href: '/admin/audit-logs', label: 'Audit Logs', icon: Shield },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/assistant', label: 'Booking Assistant', icon: Bot },
   ],
   doctor: [
     { href: '/clinical/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -42,10 +43,12 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/reception', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/reception/patients/new', label: 'Register Patient', icon: Users },
     { href: '/schedule', label: 'Schedule', icon: Calendar },
+    { href: '/assistant', label: 'Booking Assistant', icon: Bot },
     { href: '/reception/billing', label: 'Billing', icon: Receipt },
   ],
   patient: [
     { href: '/portal', label: 'Dashboard', icon: Home },
+    { href: '/assistant', label: 'Booking Assistant', icon: Bot },
     { href: '/portal/appointments', label: 'Appointments', icon: Calendar },
     { href: '/portal/records', label: 'My Records', icon: FolderOpen },
     { href: '/portal/labs', label: 'Lab Results', icon: FlaskConical },
