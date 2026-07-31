@@ -11,7 +11,7 @@ import {
   Pill, FlaskConical, Receipt, MessageSquare, Shield,
   ChevronLeft, ChevronRight, LogOut, Settings, Bell,
   HeartPulse, Home, FolderOpen, ClipboardList, AlertTriangle,
-  Menu, X, Bot
+  Menu, X, Bot, UserCircle
 } from 'lucide-react';
 import { Avatar, Spinner } from '@/components/ui';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -55,6 +55,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
     { href: '/portal/medications', label: 'Medications', icon: Pill },
     { href: '/portal/messages', label: 'Messages', icon: MessageSquare },
     { href: '/portal/documents', label: 'Documents', icon: ClipboardList },
+    { href: '/portal/profile', label: 'My Profile', icon: UserCircle },
   ],
 };
 

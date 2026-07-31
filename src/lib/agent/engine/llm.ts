@@ -71,44 +71,45 @@ export async function classifyIntentWithLLM(userMessage: string): Promise<string
 
     const intentPrompt = `You are an intent classifier for a medical clinic chat assistant.
 Classify the patient's message into EXACTLY ONE of these intents:
-- PATIENT_HISTORY : wants personal medical records, allergies, history, past appointments.
+- PATIENT_HISTORY : wants personal medical records, allergies, conditions, blood type, general health history.
+- LAB_RESULTS     : wants to see their lab test results, blood work, pathology, or diagnostic reports.
+                    Examples: "tell me about my lab reports", "show my blood test", "any abnormal results"
+- MEDICATIONS     : wants to see current or past medications, prescriptions, dosage, or refills.
+                    Examples: "what medications am I on", "my prescriptions", "show my meds"
 - DOCTOR_INFO     : wants info about doctors, staff, or specialties.
 - SYSTEM_INFO     : wants clinic info (hours, address, phone, services, insurance).
 - BOOK            : wants to schedule a new appointment.
 - CHECK_UPCOMING  : wants to check upcoming appointments.
 - RESCHEDULE      : wants to change an appointment time.
 - CANCEL          : wants to cancel an appointment.
-- HUMAN_HANDOFF   : wants to talk to a receptionist / real person.
+- HUMAN_HANDOFF   : explicitly wants to speak with a human or receptionist.
 - GREET           : greeting, small talk, or unclear.
 
 Patient message: "${userMessage}"
 
-Respond with ONLY the single intent label (e.g. PATIENT_HISTORY). No extra words.`;
+Respond with ONLY the single intent label. No explanation.`;
 
     const response = await groq.chat.completions.create({
       model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: intentPrompt }],
-      temperature: 0.1,
+      temperature: 0,
       max_tokens: 20,
     });
 
-    const intent = response.choices[0]?.message?.content?.trim().toUpperCase() || 'GREET';
-    const valid = [
-      'PATIENT_HISTORY',
-      'DOCTOR_INFO',
-      'SYSTEM_INFO',
-      'BOOK',
-      'CHECK_UPCOMING',
-      'RESCHEDULE',
-      'CANCEL',
-      'HUMAN_HANDOFF',
-      'GREET',
-    ];
-
-    const matched = valid.find((v) => intent.includes(v));
-    return matched || 'GREET';
+    const raw = response.choices[0]?.message?.content?.trim().toUpperCase() || 'GREET';
+    const valid = new Set([
+      'PATIENT_HISTORY', 'LAB_RESULTS', 'MEDICATIONS',
+      'DOCTOR_INFO', 'SYSTEM_INFO',
+      'BOOK', 'CHECK_UPCOMING', 'RESCHEDULE', 'CANCEL',
+      'HUMAN_HANDOFF', 'GREET',
+    ]);
+    const firstWord = raw.split(/\s+/)[0] || 'GREET';
+    const result = valid.has(firstWord) ? firstWord : 'GREET';
+    console.log(`[Intent] "${userMessage.slice(0, 60)}" → ${result}`);
+    return result;
   } catch (err) {
     console.error('[classifyIntentWithLLM] Error:', err);
     return 'GREET';
   }
 }
+

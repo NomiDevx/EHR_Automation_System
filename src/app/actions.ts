@@ -742,3 +742,89 @@ export async function getUserChatHistory(): Promise<{
   }
 }
 
+
+// ─── Password Change ──────────────────────────────────────────────────────────
+
+export async function changePassword(
+  newPassword: string,
+): Promise<{ success: true } | { error: string }> {
+  try {
+    if (!newPassword || newPassword.length < 8) {
+      return { error: 'Password must be at least 8 characters.' };
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { error: 'You must be logged in to change your password.' };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      return { error: error.message || 'Failed to update password. Please try again.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[changePassword]', err);
+    return { error: err?.message || 'An unexpected error occurred.' };
+  }
+}
+
+
+// ─── Patient Profile Update ───────────────────────────────────────────────────
+
+export async function updatePatientProfile(data: {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string; // YYYY-MM-DD
+}): Promise<{ success: true } | { error: string }> {
+  try {
+    const { firstName, lastName, dateOfBirth } = data;
+
+    if (!firstName.trim() || !lastName.trim()) {
+      return { error: 'First name and last name are required.' };
+    }
+    if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+      return { error: 'Date of birth must be in YYYY-MM-DD format.' };
+    }
+
+    const supabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { error: 'You must be logged in to update your profile.' };
+    }
+
+    // Update the patients table (linked by profile_id)
+    const { error: patientError } = await adminSupabase
+      .from('patients')
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        date_of_birth: dateOfBirth,
+      })
+      .eq('profile_id', user.id);
+
+    if (patientError) {
+      return { error: patientError.message || 'Failed to update profile.' };
+    }
+
+    // Also sync the profiles table so the sidebar name updates
+    await adminSupabase
+      .from('profiles')
+      .update({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+      })
+      .eq('id', user.id);
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[updatePatientProfile]', err);
+    return { error: err?.message || 'An unexpected error occurred.' };
+  }
+}

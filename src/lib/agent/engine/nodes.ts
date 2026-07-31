@@ -13,6 +13,8 @@ import {
   cancelAppointment,
   getAvailableSlots,
   getPatientHistorySummary,
+  getPatientLabResults,
+  getPatientMedications,
   getUpcomingAppointments,
   listDoctors,
   lookupPatientByNameDob,
@@ -30,18 +32,39 @@ export async function processNodeTurn(
   switch (targetNode) {
     case 'GREET': {
       let patientName = updatedState.patient_name;
+      let patientDob  = updatedState.patient_dob;
+
       if (updatedState.user_id && !patientName) {
         const patient = await lookupPatientByUserId(updatedState.user_id);
         if (patient) {
           patientName = `${patient.first_name} ${patient.last_name}`;
-          updatedState.patient_id = patient.id;
+          patientDob  = patient.dob;
+          updatedState.patient_id   = patient.id;
           updatedState.patient_name = patientName;
+          updatedState.patient_dob  = patientDob;
         }
       }
 
       if (patientName) {
-        updatedState.reply = `Hello ${patientName}! Welcome back to MediCore Health. I can help you schedule an appointment, check your records, or answer any questions. What would you like to do today?`;
-        updatedState.options = ['Book Appointment', 'Check Records', 'Clinic Hours', 'Talk to Receptionist'];
+        // Format DOB for display
+        let dobDisplay = patientDob || '';
+        if (patientDob) {
+          try {
+            const dt = new Date(patientDob);
+            dobDisplay = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          } catch (_) { /* keep raw */ }
+        }
+        updatedState.reply =
+          `Welcome to MediCore EHR! 🎙️💬 You can speak using your voice or type your messages anytime.\n\n` +
+          `According to my data, your name is **${patientName}**` +
+          (dobDisplay ? ` and your date of birth is **${dobDisplay}**` : '') +
+          `.\n\nWhat assistance do you need today? I can help you book an appointment, check upcoming visits, view your medical history, lab results, medications, or answer any questions about our clinic.`;
+        updatedState.options = [
+          'Book an appointment',
+          'Check my upcoming visit',
+          'My lab results',
+          'My medications',
+        ];
         updatedState.current_node = 'GREET';
       } else {
         const llmOut = await callLLMWithStructuredOutput(
@@ -54,6 +77,7 @@ export async function processNodeTurn(
       }
       break;
     }
+
 
     case 'COLLECT_INFO': {
       const llmOut = await callLLMWithStructuredOutput(
@@ -254,6 +278,162 @@ export async function processNodeTurn(
       const summary = await getPatientHistorySummary(updatedState.user_id);
       updatedState.reply = `Here is your current medical record summary:\n\n${summary}`;
       updatedState.options = ['Book Appointment', 'Check Upcoming Visit', 'Main Menu'];
+      break;
+    }
+
+    case 'LAB_RESULTS': {
+      if (!updatedState.user_id) {
+        updatedState.reply =
+          '🔒 For your privacy, I can only show lab results when you are logged in.\n\nPlease log in to your patient portal and come back to view your lab reports.';
+        updatedState.options = ['Book Appointment', 'Clinic Information', 'Talk to Receptionist'];
+        break;
+      }
+
+      // Resolve patient_id
+      let pid = updatedState.patient_id;
+      if (!pid) {
+        const p = await lookupPatientByUserId(updatedState.user_id);
+        if (p) {
+          pid = p.id;
+          updatedState.patient_id = pid;
+          if (!updatedState.patient_name) updatedState.patient_name = `${p.first_name} ${p.last_name}`;
+        }
+      }
+
+      if (!pid) {
+        updatedState.reply = "I wasn't able to locate your patient record. Please call our clinic for assistance.";
+        updatedState.options = ['Call Clinic', 'Book Appointment'];
+        break;
+      }
+
+      const labResults = await getPatientLabResults(pid);
+      const firstName = updatedState.patient_name?.split(' ')[0] || 'there';
+
+      if (labResults.length === 0) {
+        updatedState.reply =
+          `Hi ${firstName}! I checked our database, but there are no lab results on file for your account yet.\n\n` +
+          `Lab results are added by our clinical team after your visit. If you recently had tests done, please call us.`;
+        updatedState.options = ['Book Appointment', 'Talk to Receptionist', "I'm all set"];
+        break;
+      }
+
+      const FLAG_ICON: Record<string, string> = {
+        normal: '✅',
+        low: '⬇️ Low',
+        high: '⬆️ High',
+        critical_low: '🚨 Critical Low',
+        critical_high: '🚨 Critical High',
+      };
+
+      // Group by test name (plain object avoids --downlevelIteration requirement)
+      const grouped: Record<string, typeof labResults> = {};
+      for (const r of labResults) {
+        const testName = (r.lab_order as any)?.test_name || 'Lab Test';
+        if (!grouped[testName]) grouped[testName] = [];
+        grouped[testName].push(r);
+      }
+
+      const sections: string[] = [];
+      for (const [testName, rows] of Object.entries(grouped)) {
+        const lines = [`🧪 **${testName}**`];
+        for (const r of rows) {
+          const flagIcon = FLAG_ICON[r.flag] || '';
+          const ref =
+            r.reference_low && r.reference_high
+              ? ` (ref: ${r.reference_low}–${r.reference_high} ${r.unit || ''})`
+              : '';
+          const dateStr = r.resulted_at.slice(0, 10);
+          lines.push(`  • ${r.component_name}: **${r.value} ${r.unit || ''}** ${flagIcon}${ref} — ${dateStr}`);
+        }
+        sections.push(lines.join('\n'));
+      }
+
+      const hasAbnormal = labResults.some((r) => r.flag !== 'normal');
+      const abnormalNote = hasAbnormal
+        ? '\n\n⚠️ *Some results are outside the normal range. Please discuss these with your doctor.*'
+        : '';
+
+      updatedState.reply =
+        `Here are your recent lab results, ${firstName}:\n\n` +
+        sections.join('\n\n') +
+        abnormalNote +
+        '\n\n🔒 *This information is private and visible only to you.*\n\n' +
+        'Would you like to book a follow-up with your doctor to discuss these results?';
+      updatedState.options = ['Book a Follow-up', 'Check Upcoming Appointment', "I'm all set"];
+      updatedState.current_node = 'DONE';
+      break;
+    }
+
+    case 'MEDICATIONS': {
+      if (!updatedState.user_id) {
+        updatedState.reply =
+          '🔒 For your privacy, I can only show medication information when you are logged in.\n\nPlease log in to your patient portal to view your prescriptions.';
+        updatedState.options = ['Book Appointment', 'Clinic Information', 'Talk to Receptionist'];
+        break;
+      }
+
+      // Resolve patient_id
+      let mpid = updatedState.patient_id;
+      if (!mpid) {
+        const mp = await lookupPatientByUserId(updatedState.user_id);
+        if (mp) {
+          mpid = mp.id;
+          updatedState.patient_id = mpid;
+          if (!updatedState.patient_name) updatedState.patient_name = `${mp.first_name} ${mp.last_name}`;
+        }
+      }
+
+      if (!mpid) {
+        updatedState.reply = "I wasn't able to locate your patient record. Please call our clinic for assistance.";
+        updatedState.options = ['Call Clinic', 'Book Appointment'];
+        break;
+      }
+
+      const meds = await getPatientMedications(mpid);
+      const mFirstName = updatedState.patient_name?.split(' ')[0] || 'there';
+
+      if (meds.active.length === 0 && meds.past.length === 0) {
+        updatedState.reply =
+          `Hi ${mFirstName}! I checked our records, but there are no prescriptions on file for your account yet.\n\n` +
+          `Prescriptions are added by your doctor after a visit. If you think this is an error, please contact your care team.`;
+        updatedState.options = ['Book Appointment', 'Talk to Receptionist', "I'm all set"];
+        break;
+      }
+
+      const fmtMed = (r: (typeof meds.active)[0]): string => {
+        const prescriber = r.prescriber as any;
+        const doc = prescriber ? `Dr. ${prescriber.first_name} ${prescriber.last_name}` : 'Your doctor';
+        let line = `💊 **${r.drug_name}**`;
+        if (r.drug_generic_name) line += ` (${r.drug_generic_name})`;
+        line += `\n   Dose: ${r.dosage} — ${r.frequency}`;
+        if (r.route) line += ` (${r.route})`;
+        line += `\n   Prescribed by: ${doc}   |   Started: ${r.start_date.slice(0, 10)}`;
+        if (r.refills_remaining !== undefined && r.refills_remaining !== null) {
+          line += `   |   Refills left: ${r.refills_remaining}`;
+        }
+        if (r.instructions) line += `\n   📋 ${r.instructions}`;
+        return line;
+      };
+
+      const sections: string[] = [];
+      if (meds.active.length > 0) {
+        sections.push(['💚 **Active Medications**', ...meds.active.map(fmtMed)].join('\n\n'));
+      }
+      if (meds.past.length > 0) {
+        const pastLines = meds.past.slice(0, 5).map((r) => {
+          const status = r.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+          return fmtMed(r) + `\n   Status: ${status}`;
+        });
+        sections.push(['📁 **Past Medications**', ...pastLines].join('\n\n'));
+      }
+
+      updatedState.reply =
+        `Here are your medications on file, ${mFirstName}:\n\n` +
+        sections.join('\n\n─────────────────────\n\n') +
+        '\n\n🔒 *This information is private and visible only to you.*\n\n' +
+        'Would you like to book an appointment or is there anything else I can help you with?';
+      updatedState.options = ['Book Appointment', 'View Lab Results', 'Check Upcoming Appointment', "I'm all set"];
+      updatedState.current_node = 'DONE';
       break;
     }
 

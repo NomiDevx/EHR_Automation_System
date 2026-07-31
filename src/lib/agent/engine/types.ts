@@ -16,6 +16,8 @@ export type ConversationNode =
   | 'SYSTEM_INFO'
   | 'DOCTOR_INFO'
   | 'PATIENT_HISTORY'
+  | 'LAB_RESULTS'
+  | 'MEDICATIONS'
   | 'ERROR';
 
 export type AppointmentType =

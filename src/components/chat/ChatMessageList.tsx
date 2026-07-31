@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, isSpeechSynthesisSupported } from '@/lib/agent/speech';
+import { FormattedMarkdown } from './FormattedMarkdown';
 
 export interface ChatMessage {
   id: string;
@@ -67,7 +68,7 @@ export function ChatMessageList({ messages, isLoading, onOptionSelect }: ChatMes
                   : 'bg-[hsl(var(--surface))] border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-bl-sm',
               )}
             >
-              <p className="leading-relaxed whitespace-pre-wrap">{message.text}</p>
+              <FormattedMarkdown content={message.text} />
             </div>
 
             {!isUser && (

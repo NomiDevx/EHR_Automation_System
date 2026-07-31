@@ -6,11 +6,13 @@ import { formatDate, formatDateTime, LAB_FLAG_COLORS } from '@/lib/utils';
 import { 
   Calendar, FlaskConical, Pill, MessageSquare, FileText, 
   ChevronRight, HeartPulse, CheckCircle2, UserCheck, 
-  Stethoscope, Phone, Clock, MapPin, ArrowRight, Activity
+  Stethoscope, Phone, Clock, MapPin, ArrowRight, Activity,
+  User, Mail, CreditCard, CalendarDays, ShieldCheck
 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import type { LabResultFlag } from '@/lib/types/database';
+import { ChangePasswordForm } from './components/ChangePasswordForm';
 
 export const metadata: Metadata = { title: 'My Health Portal' };
 
@@ -303,6 +305,111 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
           </Link>
         ))}
       </div>
+
+      {/* ── My Profile Section ────────────────────────────────────────── */}
+      <section id="my-profile-section" className="space-y-4">
+        <div className="flex items-center gap-2.5 border-b border-[hsl(var(--border-muted))] pb-2.5">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+            <User className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">My Profile</h2>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Your personal data on file · Change your password</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Patient data card */}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center gap-2 border-b border-[hsl(var(--border-muted))] pb-3">
+              <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              <h3 className="text-xs font-semibold text-[hsl(var(--foreground))]">Personal Information</h3>
+            </div>
+
+            <dl className="space-y-3 text-xs">
+              {/* Full Name */}
+              <div className="flex items-start gap-3">
+                <User className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Full Name</dt>
+                  <dd className="font-semibold text-[hsl(var(--foreground))]">
+                    {patient.first_name} {patient.last_name}
+                  </dd>
+                </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div className="flex items-start gap-3">
+                <CalendarDays className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Date of Birth</dt>
+                  <dd className="font-semibold text-[hsl(var(--foreground))]">
+                    {formatDate(patient.date_of_birth)}
+                  </dd>
+                </div>
+              </div>
+
+              {/* MRN */}
+              <div className="flex items-start gap-3">
+                <CreditCard className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Medical Record No.</dt>
+                  <dd className="font-mono font-semibold text-[hsl(var(--foreground))] tracking-wide">
+                    {patient.mrn ?? '—'}
+                  </dd>
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="flex items-start gap-3">
+                <Mail className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Email Address</dt>
+                  <dd className="font-semibold text-[hsl(var(--foreground))] break-all">
+                    {patient.email ?? '—'}
+                  </dd>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex items-start gap-3">
+                <Phone className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Phone Number</dt>
+                  <dd className="font-semibold text-[hsl(var(--foreground))]">
+                    {patient.phone ?? '—'}
+                  </dd>
+                </div>
+              </div>
+
+              {/* Last appointment */}
+              <div className="flex items-start gap-3">
+                <Calendar className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
+                <div>
+                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Last Appointment</dt>
+                  <dd className="font-semibold text-[hsl(var(--foreground))]">
+                    {upcomingAppts && upcomingAppts.length > 0
+                      ? formatDate(upcomingAppts[0].scheduled_at)
+                      : 'No upcoming appointments'}
+                  </dd>
+                </div>
+              </div>
+            </dl>
+          </Card>
+
+          {/* Change password card */}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-center gap-2 border-b border-[hsl(var(--border-muted))] pb-3">
+              <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              <h3 className="text-xs font-semibold text-[hsl(var(--foreground))]">Change Password</h3>
+            </div>
+            <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
+              Choose a strong password to keep your health data secure. Must be at least 8 characters.
+            </p>
+            <ChangePasswordForm />
+          </Card>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming appointments */}

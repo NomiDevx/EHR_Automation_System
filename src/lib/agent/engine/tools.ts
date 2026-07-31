@@ -22,12 +22,19 @@ export async function lookupPatientByUserId(userId: string): Promise<PatientReco
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('patients')
-      .select('id, first_name, last_name, dob, mrn, user_id')
-      .eq('user_id', userId)
+      .select('id, first_name, last_name, date_of_birth, mrn, profile_id')
+      .eq('profile_id', userId)   // patients.profile_id links to auth.users.id
       .maybeSingle();
 
     if (error || !data) return null;
-    return data as PatientRecord;
+    return {
+      id: data.id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      dob: data.date_of_birth,
+      mrn: data.mrn,
+      user_id: data.profile_id,
+    } as PatientRecord;
   } catch (err) {
     console.error('[lookupPatientByUserId] Error:', err);
     return null;
@@ -316,5 +323,98 @@ export async function saveChatLog(params: {
   } catch (err) {
     // Non-blocking log insertion error
     console.error('[saveChatLog] Error:', err);
+  }
+}
+
+
+// ─── Lab Results ─────────────────────────────────────────────────────────────
+
+export interface LabResult {
+  id: string;
+  component_name: string;
+  value: string;
+  unit?: string;
+  reference_low?: string;
+  reference_high?: string;
+  flag: 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high';
+  resulted_at: string;
+  notes?: string;
+  lab_order?: { test_name: string; priority: string; ordered_at: string };
+}
+
+export async function getPatientLabResults(
+  patientId: string,
+  limit = 20,
+): Promise<LabResult[]> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('lab_results')
+      .select(
+        'id, component_name, value, unit, reference_low, reference_high, flag, resulted_at, notes, ' +
+        'lab_order:lab_orders(test_name, priority, ordered_at)',
+      )
+      .eq('patient_id', patientId)
+      .order('resulted_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[getPatientLabResults] Error:', error);
+      return [];
+    }
+    return (data || []) as LabResult[];
+  } catch (err) {
+    console.error('[getPatientLabResults] Error:', err);
+    return [];
+  }
+}
+
+
+// ─── Medications (Prescriptions) ──────────────────────────────────────────────
+
+export interface Prescription {
+  id: string;
+  drug_name: string;
+  drug_generic_name?: string;
+  dosage: string;
+  frequency: string;
+  route?: string;
+  status: 'active' | 'discontinued' | 'completed' | 'on_hold';
+  start_date: string;
+  end_date?: string;
+  refills_remaining?: number;
+  instructions?: string;
+  prescriber?: { first_name: string; last_name: string; specialty?: string };
+}
+
+export async function getPatientMedications(
+  patientId: string,
+): Promise<{ active: Prescription[]; past: Prescription[] }> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from('prescriptions')
+      .select(
+        'id, drug_name, drug_generic_name, dosage, frequency, route, ' +
+        'status, start_date, end_date, refills_remaining, instructions, ' +
+        'prescriber:profiles!prescriptions_prescriber_id_fkey(first_name, last_name, specialty)',
+      )
+      .eq('patient_id', patientId)
+      .order('start_date', { ascending: false })
+      .limit(30);
+
+    if (error) {
+      console.error('[getPatientMedications] Error:', error);
+      return { active: [], past: [] };
+    }
+
+    const rows = (data || []) as Prescription[];
+    return {
+      active: rows.filter((r) => r.status === 'active'),
+      past:   rows.filter((r) => r.status !== 'active'),
+    };
+  } catch (err) {
+    console.error('[getPatientMedications] Error:', err);
+    return { active: [], past: [] };
   }
 }

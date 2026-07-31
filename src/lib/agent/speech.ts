@@ -190,19 +190,21 @@ export function speak(
     .replace(/\n+/g, '. ')
     .trim();
 
-  // Try ElevenLabs audio endpoint from FastAPI backend first
+  // Call edge-tts endpoint (either FastAPI backend or Next.js /api/tts)
   const agentApiUrl = process.env.NEXT_PUBLIC_AGENT_API_URL;
-  if (agentApiUrl && typeof window !== 'undefined') {
-    const baseUrl = agentApiUrl.replace(/\/$/, '');
-    
-    fetch(`${baseUrl}/tts`, {
+  const ttsEndpoint = agentApiUrl
+    ? `${agentApiUrl.replace(/\/$/, '')}/tts`
+    : '/api/tts';
+
+  if (typeof window !== 'undefined') {
+    fetch(ttsEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: cleanText }),
     })
       .then(async (res) => {
         if (!res.ok) {
-          throw new Error('ElevenLabs TTS unavailable, fallback to WebSpeech');
+          throw new Error('edge-tts endpoint unavailable, fallback to WebSpeech');
         }
         const blob = await res.blob();
         const audioUrl = URL.createObjectURL(blob);
