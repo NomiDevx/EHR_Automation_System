@@ -17,6 +17,7 @@ import {
 const schema = z.object({
   firstName: z.string().min(2, 'First name required'),
   lastName: z.string().min(2, 'Last name required'),
+  dateOfBirth: z.string().min(1, 'Date of birth is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format'),
   email: z.string().email('Invalid email address'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
@@ -61,18 +62,24 @@ function SignupForm() {
   const defaultFirstName = searchParams.get('firstName') || '';
   const defaultLastName = searchParams.get('lastName') || '';
   const defaultEmail = searchParams.get('email') || '';
+  const defaultDob = searchParams.get('dob') || '';
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { firstName: defaultFirstName, lastName: defaultLastName, email: defaultEmail },
+    defaultValues: {
+      firstName: defaultFirstName,
+      lastName: defaultLastName,
+      email: defaultEmail,
+      dateOfBirth: defaultDob,
+    },
   });
 
 
-  const onSubmit = async ({ email, password, firstName, lastName }: FormData) => {
+  const onSubmit = async ({ email, password, firstName, lastName, dateOfBirth }: FormData) => {
     setError(null);
     try {
       // Step 1: Create user server-side with email_confirm: true (no email verification)
-      const result = await signUpPatient(email, password, firstName, lastName);
+      const result = await signUpPatient(email, password, firstName, lastName, dateOfBirth);
 
       if ('error' in result) {
         setError(result.error);
@@ -94,7 +101,7 @@ function SignupForm() {
           await bookPublicAppointment({
             firstName, lastName, email,
             phone: bookingPhone,
-            dateOfBirth: bookingDob,
+            dateOfBirth: dateOfBirth || bookingDob,
             gender: bookingGender as any,
             providerId: bookingDoctorId,
             appointmentType: bookingType as any,
@@ -256,6 +263,15 @@ function SignupForm() {
               <Input label="First Name" id="signup-first-name" error={errors.firstName?.message} {...register('firstName')} />
               <Input label="Last Name" id="signup-last-name" error={errors.lastName?.message}  {...register('lastName')} />
             </div>
+
+            <Input
+              label="Date of Birth"
+              type="date"
+              id="signup-dob"
+              max={new Date().toISOString().split('T')[0]}
+              error={errors.dateOfBirth?.message}
+              {...register('dateOfBirth')}
+            />
 
             <Input
               label="Email address"

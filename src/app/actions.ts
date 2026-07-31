@@ -10,16 +10,22 @@ export async function signUpPatient(
   password: string,
   firstName: string,
   lastName: string,
+  dateOfBirth?: string,
 ): Promise<{ success: true } | { error: string }> {
   try {
     const adminSupabase = createAdminClient();
 
-    // Create user and immediately confirm email — no verification email needed
+    // 1. Create user and immediately confirm email — no verification email needed
     const { data, error } = await adminSupabase.auth.admin.createUser({
       email,
       password,
-      user_metadata: { first_name: firstName, last_name: lastName, role: 'patient' },
-      email_confirm: true,   // ← skips email verification entirely
+      user_metadata: {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        role: 'patient',
+        date_of_birth: dateOfBirth,
+      },
+      email_confirm: true,
     });
 
     if (error) {
@@ -28,6 +34,56 @@ export async function signUpPatient(
 
     if (!data?.user) {
       return { error: 'Signup failed — no user returned.' };
+    }
+
+    const userId = data.user.id;
+    const cleanFirst = firstName.trim();
+    const cleanLast = lastName.trim();
+    const dob = dateOfBirth || '1990-01-01';
+
+    // 2. Ensure profiles table row exists with exact first_name, last_name & email
+    await adminSupabase
+      .from('profiles')
+      .upsert({
+        id: userId,
+        email: email,
+        first_name: cleanFirst,
+        last_name: cleanLast,
+        role: 'patient',
+        is_active: true,
+      }, { onConflict: 'id' });
+
+    // 3. Create or link patients table record with DOB
+    const { data: existingPat } = await adminSupabase
+      .from('patients')
+      .select('id')
+      .eq('profile_id', userId)
+      .maybeSingle();
+
+    if (!existingPat) {
+      await adminSupabase
+        .from('patients')
+        .insert({
+          profile_id: userId,
+          first_name: cleanFirst,
+          last_name: cleanLast,
+          email: email,
+          date_of_birth: dob,
+          gender: 'other',
+          is_active: true,
+          consent_obtained: true,
+          consent_date: new Date().toISOString(),
+        });
+    } else {
+      await adminSupabase
+        .from('patients')
+        .update({
+          first_name: cleanFirst,
+          last_name: cleanLast,
+          date_of_birth: dob,
+          email: email,
+        })
+        .eq('id', existingPat.id);
     }
 
     return { success: true };
