@@ -1,4 +1,5 @@
-import { AgentState, ConversationNode } from './types';
+import { AgentState, AppointmentType, ConversationNode } from './types';
+
 import { callLLMWithStructuredOutput } from './llm';
 import {
   APPOINTMENT_TYPE_OPTIONS,
