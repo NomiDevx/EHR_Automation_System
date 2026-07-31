@@ -298,8 +298,7 @@ export async function triggerWebhookForAppointment(appointmentId: string) {
       if (p) provider = p;
     }
 
-    const dbWebhookUrl = await getWebhookUrl();
-    const webhookUrl = dbWebhookUrl || process.env.N8N_WEBHOOK_URL || 'https://simadi6690.app.n8n.cloud/webhook-test/book-appointment';
+    const webhookUrl = process.env.N8N_WEBHOOK_URL || 'https://simadi6690.app.n8n.cloud/webhook-test/book-appointment';
 
     const payload = {
       appointment_id: appt.id,
