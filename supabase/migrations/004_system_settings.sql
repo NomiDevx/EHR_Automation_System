@@ -27,5 +27,5 @@ create policy "Admins can do everything on system_settings"
 
 -- Insert default configurations
 insert into system_settings (key, value)
-values ('webhook_url', 'https://simadi6690.app.n8n.cloud/webhook-test/book-appointment')
+values ('webhook_url', 'https://simadi6690.app.n8n.cloud/webhook/book-appointment')
 on conflict (key) do nothing;
