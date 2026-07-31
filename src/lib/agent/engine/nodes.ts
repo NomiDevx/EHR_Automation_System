@@ -83,7 +83,7 @@ export async function processNodeTurn(
 
     case 'CHOOSE_TYPE': {
       const lower = userMessage.toLowerCase();
-      let selectedType: any = null;
+      let selectedType: AppointmentType | null = null;
 
       for (const [code, label] of APPOINTMENT_TYPE_OPTIONS) {
         if (lower.includes(label.toLowerCase()) || lower.includes(code.toLowerCase())) {
@@ -105,8 +105,9 @@ export async function processNodeTurn(
         updatedState.appointment_type = selectedType;
         const doctors = await listDoctors();
         updatedState.current_node = 'CHOOSE_DOCTOR';
-        updatedState.reply = `Got it, a ${TYPE_TO_LABEL[selectedType]}! Which doctor or specialist would you prefer to see?`;
+        updatedState.reply = `Got it, a ${TYPE_TO_LABEL[selectedType as AppointmentType]}! Which doctor or specialist would you prefer to see?`;
         updatedState.options = doctors.map((d) => `Dr. ${d.last_name} (${d.specialty})`);
+
       } else {
         updatedState.reply = 'Please choose one of the following visit types:';
         updatedState.options = APPOINTMENT_TYPE_OPTIONS.map(([_, label]) => label);
@@ -177,8 +178,9 @@ export async function processNodeTurn(
         });
 
         const visitLabel = updatedState.appointment_type
-          ? TYPE_TO_LABEL[updatedState.appointment_type]
+          ? TYPE_TO_LABEL[updatedState.appointment_type as AppointmentType]
           : 'Appointment';
+
 
         updatedState.reply = `Please confirm your details:\n• Visit: ${visitLabel}\n• Doctor: ${updatedState.provider_name || 'Clinic Physician'}\n• Date & Time: ${formattedTime}\n\nWould you like me to book this for you?`;
         updatedState.options = ['Yes, Confirm Booking', 'No, Choose Different Time', 'Cancel'];
