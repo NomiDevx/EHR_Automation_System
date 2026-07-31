@@ -1,15 +1,11 @@
 import { AgentApiError, type AgentChatRequest, type AgentChatResponse } from './types';
 
 function getAgentApiUrl(): string {
-  const url = process.env.NEXT_PUBLIC_AGENT_API_URL;
-  if (!url) {
-    throw new AgentApiError(
-      'The appointment assistant is not configured. Please contact the clinic.',
-      'CONFIG',
-    );
-  }
+  const url = process.env.NEXT_PUBLIC_AGENT_API_URL || '/api';
   return url.replace(/\/$/, '');
 }
+
+
 
 function parseAgentResponse(data: unknown): AgentChatResponse {
   if (

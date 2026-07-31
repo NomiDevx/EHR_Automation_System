@@ -39,4 +39,6 @@ next-env.d.ts
 
 # temp build folders
 temp_hf_space/
+agent_service/
+
 
