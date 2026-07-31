@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-
-const execAsync = promisify(exec);
+import { Communicate } from 'edge-tts-universal';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,34 +11,30 @@ export async function POST(req: NextRequest) {
     // Default voice: Realistic Microsoft Edge Neural Female Voice ('en-US-AvaNeural')
     const femaleVoice = voice || process.env.EDGE_TTS_VOICE || 'en-US-AvaNeural';
 
-    // Temporary file for generated audio
-    const tempDir = os.tmpdir();
-    const tempFile = path.join(tempDir, `edge_tts_${Date.now()}_${Math.random().toString(36).slice(2)}.mp3`);
-
-    // Clean input text for CLI invocation
+    // Clean input text for natural TTS output
     const cleanText = text
-      .replace(/[\r\n]+/g, ' ')
-      .replace(/"/g, '\\"')
+      .replace(/\[ID:[^\]]+\]/g, '')
+      .replace(/[*#_~`]/g, '')
+      .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    const command = `py -m edge_tts --voice "${femaleVoice}" --text "${cleanText}" --write-media "${tempFile}"`;
-
-    try {
-      await execAsync(command, { timeout: 15000 });
-    } catch (cmdErr: any) {
-      console.warn('[edge-tts py fallback]:', cmdErr?.message);
-      const fallbackCmd = `python -m edge_tts --voice "${femaleVoice}" --text "${cleanText}" --write-media "${tempFile}"`;
-      await execAsync(fallbackCmd, { timeout: 15000 });
+    if (!cleanText) {
+      return NextResponse.json({ error: 'text is empty after sanitization' }, { status: 400 });
     }
 
-    if (!fs.existsSync(tempFile)) {
-      return NextResponse.json({ error: 'Failed to generate edge-tts audio file' }, { status: 500 });
+    // Pure JS WebSocket TTS synthesis — works in Vercel serverless runtime without Python
+    const communicate = new Communicate(cleanText, { voice: femaleVoice });
+    const chunks: Uint8Array[] = [];
+    const stream = await communicate.stream();
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'audio' && chunk.data) {
+        chunks.push(chunk.data);
+      }
     }
 
-    const audioBuffer = fs.readFileSync(tempFile);
-
-    // Asynchronously delete temp file after reading
-    fs.unlink(tempFile, () => {});
+    const audioBuffer = Buffer.concat(chunks);
 
     return new Response(audioBuffer, {
       headers: {
@@ -54,6 +44,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('[API /api/tts Error]:', err);
-    return NextResponse.json({ error: 'edge-tts processing failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: err?.message || 'edge-tts processing failed' },
+      { status: 500 },
+    );
   }
 }
