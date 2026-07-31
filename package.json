@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@bestcodes/edge-tts": "^3.0.1",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-avatar": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.3.6",
