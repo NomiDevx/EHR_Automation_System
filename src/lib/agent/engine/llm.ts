@@ -1,115 +1,108 @@
 import Groq from 'groq-sdk';
-import { ChatMessage, TurnOutput } from './types';
-import { SYSTEM_PROMPT } from './prompts';
+import { ChatMessage } from './types';
+import { AGENT_TOOLS } from './tool-definitions';
 
 let groqClient: Groq | null = null;
 
 function getGroqClient(): Groq {
   if (!groqClient) {
     const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      throw new Error('GROQ_API_KEY is missing from environment variables.');
-    }
+    if (!apiKey) throw new Error('GROQ_API_KEY is missing from environment variables.');
     groqClient = new Groq({ apiKey });
   }
   return groqClient;
 }
 
-export async function callLLMWithStructuredOutput(
-  nodeInstructions: string,
-  history: ChatMessage[],
-): Promise<TurnOutput> {
-  try {
-    const groq = getGroqClient();
+const MODEL = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
-    const systemMessage = `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTIONS:\n${nodeInstructions}\n\nCRITICAL: Respond ONLY with a JSON object matching this exact TypeScript structure:\n{\n  "reply": "string (the exact message to show the patient - warm, clear, senior-friendly)",\n  "options": ["string"] (up to 4 quick reply chips or empty array),\n  "advance": boolean (true ONLY if this node has gathered all required info),\n  "patient_name": "string" (optional),\n  "patient_dob": "YYYY-MM-DD" (optional),\n  "appointment_type": "new_patient | follow_up | urgent | telehealth | wellness" (optional),\n  "provider_id": "string" (optional),\n  "chosen_slot": "ISO datetime string" (optional),\n  "confirmed": boolean (optional)\n}`;
+export interface ToolCallRequest {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
 
-    const messages = [
-      { role: 'system', content: systemMessage },
-      ...history.map((m) => ({
-        role: m.role === 'user' ? ('user' as const) : ('assistant' as const),
+export interface AgentLLMResponse {
+  reply: string | null;            // null means tool calls are pending
+  toolCalls: ToolCallRequest[];    // empty if LLM is done
+  rawFinishReason: string;
+}
+
+/**
+ * Send the conversation history (including any tool results) to the LLM.
+ * Returns either tool call requests (LLM wants to call tools) or a final reply.
+ */
+export async function callLLM(
+  systemPrompt: string,
+  messages: ChatMessage[],
+  useTools = true,
+): Promise<AgentLLMResponse> {
+  const groq = getGroqClient();
+
+  // Map our ChatMessage to Groq's message format
+  const groqMessages = messages.map((m) => {
+    if (m.role === 'tool') {
+      return {
+        role: 'tool' as const,
         content: m.content,
-      })),
-    ];
-
-    const response = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      messages: messages as any,
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 512,
-    });
-
-
-    const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content) as TurnOutput;
-
+        tool_call_id: m.tool_call_id || 'unknown',
+      };
+    }
     return {
-      reply: parsed.reply || 'How can I assist you with your appointment today?',
-      options: Array.isArray(parsed.options) ? parsed.options : [],
-      advance: Boolean(parsed.advance),
-      patient_name: parsed.patient_name,
-      patient_dob: parsed.patient_dob,
-      appointment_type: parsed.appointment_type,
-      provider_id: parsed.provider_id,
-      chosen_slot: parsed.chosen_slot,
-      confirmed: parsed.confirmed,
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
     };
-  } catch (err) {
-    console.error('[callLLMWithStructuredOutput] LLM error:', err);
-    return {
-      reply: "I'm having a little trouble connecting right now. Please try again or call our clinic directly.",
-      options: ['Try again', 'Call clinic'],
-      advance: false,
-    };
+  });
+
+  const requestParams: any = {
+    model: MODEL(),
+    messages: [{ role: 'system', content: systemPrompt }, ...groqMessages],
+    temperature: 0.4,
+    max_tokens: 1024,
+  };
+
+  if (useTools) {
+    requestParams.tools = AGENT_TOOLS;
+    requestParams.tool_choice = 'auto';
   }
+
+  const response = await groq.chat.completions.create(requestParams);
+  const choice = response.choices[0];
+  const finishReason = choice.finish_reason || '';
+  const msg = choice.message;
+
+  // If LLM chose to call tools
+  if (finishReason === 'tool_calls' && msg.tool_calls && msg.tool_calls.length > 0) {
+    const toolCalls: ToolCallRequest[] = msg.tool_calls.map((tc) => ({
+      id: tc.id,
+      name: tc.function.name,
+      arguments: (() => {
+        try { return JSON.parse(tc.function.arguments || '{}'); }
+        catch { return {}; }
+      })(),
+    }));
+    return { reply: null, toolCalls, rawFinishReason: finishReason };
+  }
+
+  // LLM produced a final text reply
+  const reply = msg.content?.trim() || "I'm here to help. Could you please repeat that?";
+  return { reply, toolCalls: [], rawFinishReason: finishReason };
 }
 
-export async function classifyIntentWithLLM(userMessage: string): Promise<string> {
-  try {
-    const groq = getGroqClient();
-
-    const intentPrompt = `You are an intent classifier for a medical clinic chat assistant.
-Classify the patient's message into EXACTLY ONE of these intents:
-- PATIENT_HISTORY : wants personal medical records, allergies, conditions, blood type, general health history.
-- LAB_RESULTS     : wants to see their lab test results, blood work, pathology, or diagnostic reports.
-                    Examples: "tell me about my lab reports", "show my blood test", "any abnormal results"
-- MEDICATIONS     : wants to see current or past medications, prescriptions, dosage, or refills.
-                    Examples: "what medications am I on", "my prescriptions", "show my meds"
-- DOCTOR_INFO     : wants info about doctors, staff, or specialties.
-- SYSTEM_INFO     : wants clinic info (hours, address, phone, services, insurance).
-- BOOK            : wants to schedule a new appointment.
-- CHECK_UPCOMING  : wants to check upcoming appointments.
-- RESCHEDULE      : wants to change an appointment time.
-- CANCEL          : wants to cancel an appointment.
-- HUMAN_HANDOFF   : explicitly wants to speak with a human or receptionist.
-- GREET           : greeting, small talk, or unclear.
-
-Patient message: "${userMessage}"
-
-Respond with ONLY the single intent label. No explanation.`;
-
-    const response = await groq.chat.completions.create({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: intentPrompt }],
-      temperature: 0,
-      max_tokens: 20,
-    });
-
-    const raw = response.choices[0]?.message?.content?.trim().toUpperCase() || 'GREET';
-    const valid = new Set([
-      'PATIENT_HISTORY', 'LAB_RESULTS', 'MEDICATIONS',
-      'DOCTOR_INFO', 'SYSTEM_INFO',
-      'BOOK', 'CHECK_UPCOMING', 'RESCHEDULE', 'CANCEL',
-      'HUMAN_HANDOFF', 'GREET',
-    ]);
-    const firstWord = raw.split(/\s+/)[0] || 'GREET';
-    const result = valid.has(firstWord) ? firstWord : 'GREET';
-    console.log(`[Intent] "${userMessage.slice(0, 60)}" → ${result}`);
-    return result;
-  } catch (err) {
-    console.error('[classifyIntentWithLLM] Error:', err);
-    return 'GREET';
-  }
+/**
+ * Build the assistant message to inject into history when the LLM made tool calls.
+ * This is required by Groq's API — the assistant's tool-calling turn must appear in history.
+ */
+export function buildAssistantToolCallMessage(toolCalls: ToolCallRequest[]): any {
+  return {
+    role: 'assistant',
+    content: null,
+    tool_calls: toolCalls.map((tc) => ({
+      id: tc.id,
+      type: 'function',
+      function: {
+        name: tc.name,
+        arguments: JSON.stringify(tc.arguments),
+      },
+    })),
+  };
 }
-

@@ -1,35 +1,8 @@
-export type ConversationNode =
-  | 'GREET'
-  | 'VERIFY_PATIENT'
-  | 'COLLECT_INFO'
-  | 'CHOOSE_TYPE'
-  | 'CHOOSE_DOCTOR'
-  | 'CHOOSE_SLOT'
-  | 'CONFIRM'
-  | 'BOOK'
-  | 'DONE'
-  | 'HUMAN_HANDOFF'
-  | 'EMAIL_CHECK'
-  | 'CHECK_UPCOMING'
-  | 'RESCHEDULE'
-  | 'CANCEL'
-  | 'SYSTEM_INFO'
-  | 'DOCTOR_INFO'
-  | 'PATIENT_HISTORY'
-  | 'LAB_RESULTS'
-  | 'MEDICATIONS'
-  | 'ERROR';
-
-export type AppointmentType =
-  | 'new_patient'
-  | 'follow_up'
-  | 'urgent'
-  | 'telehealth'
-  | 'wellness';
-
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  tool_call_id?: string;
+  name?: string;
 }
 
 export interface AgentState {
@@ -38,33 +11,19 @@ export interface AgentState {
   patient_id?: string;
   patient_name?: string;
   patient_dob?: string;
-
-  appointment_type?: AppointmentType;
-  provider_id?: string;
-  provider_name?: string;
-  chosen_slot?: string;
-
-  available_slots?: string[];
-
-  confirmed?: boolean;
-  appointment_id?: string;
-  reschedule_appointment_id?: string;
-
-  current_node: ConversationNode;
+  messages: ChatMessage[];
   reply: string;
   options: string[];
-
-  messages: ChatMessage[];
 }
 
-export interface TurnOutput {
+export interface AgentTurnResult {
   reply: string;
-  options?: string[];
-  advance?: boolean;
-  patient_name?: string;
-  patient_dob?: string;
-  appointment_type?: string;
-  provider_id?: string;
-  chosen_slot?: string;
-  confirmed?: boolean;
+  options: string[];
 }
+
+export type AppointmentType =
+  | 'new_patient'
+  | 'follow_up'
+  | 'urgent'
+  | 'telehealth'
+  | 'wellness';

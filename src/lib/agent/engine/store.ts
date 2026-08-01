@@ -6,7 +6,6 @@ export function getInitialState(sessionId: string, userId?: string): AgentState 
   return {
     session_id: sessionId,
     user_id: userId,
-    current_node: 'GREET',
     reply: '',
     options: [],
     messages: [],

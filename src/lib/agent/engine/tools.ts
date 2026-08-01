@@ -15,6 +15,9 @@ export interface PatientRecord {
   dob: string;
   mrn?: string;
   user_id?: string;
+  email?: string;
+  phone?: string;
+  gender?: string;
 }
 
 export async function lookupPatientByUserId(userId: string): Promise<PatientRecord | null> {
@@ -22,8 +25,8 @@ export async function lookupPatientByUserId(userId: string): Promise<PatientReco
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('patients')
-      .select('id, first_name, last_name, date_of_birth, mrn, profile_id')
-      .eq('profile_id', userId)   // patients.profile_id links to auth.users.id
+      .select('id, first_name, last_name, date_of_birth, mrn, profile_id, email, phone, gender')
+      .eq('profile_id', userId)
       .maybeSingle();
 
     if (error || !data) return null;
@@ -34,6 +37,9 @@ export async function lookupPatientByUserId(userId: string): Promise<PatientReco
       dob: data.date_of_birth,
       mrn: data.mrn,
       user_id: data.profile_id,
+      email: data.email,
+      phone: data.phone,
+      gender: data.gender,
     } as PatientRecord;
   } catch (err) {
     console.error('[lookupPatientByUserId] Error:', err);

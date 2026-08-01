@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionState, saveSessionState } from '@/lib/agent/engine/store';
-import { routeTurn } from '@/lib/agent/engine/router';
-import { processNodeTurn } from '@/lib/agent/engine/nodes';
+import { runAgent } from '@/lib/agent/engine/agent';
 import { saveChatLog } from '@/lib/agent/engine/tools';
 
 export async function POST(req: NextRequest) {
@@ -16,14 +15,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Get or initialize state
+    // 1. Get or initialize session state
     const state = getSessionState(session_id, user_id);
     if (user_id) state.user_id = user_id;
 
-    // 2. Append user message to conversation history
+    // 2. Add user message to conversation history
     state.messages.push({ role: 'user', content: message });
 
-    // Save user chat log
+    // Log user message
     await saveChatLog({
       sessionId: session_id,
       senderRole: 'user',
@@ -32,33 +31,32 @@ export async function POST(req: NextRequest) {
       patientId: state.patient_id,
     });
 
-    // 3. Determine target node via 2-layer router
-    const targetNode = await routeTurn(state, message);
+    // 3. Run the LLM-driven agent (tool selection + execution + reply)
+    const result = await runAgent(state, message);
 
-    // 4. Process node execution
-    const { nextState } = await processNodeTurn(targetNode, state, message);
+    // 4. Add assistant reply to history
+    state.messages.push({ role: 'assistant', content: result.reply });
+    state.reply = result.reply;
+    state.options = result.options;
 
-    // Append assistant response to messages
-    nextState.messages.push({ role: 'assistant', content: nextState.reply });
+    // 5. Persist updated state
+    saveSessionState(session_id, state);
 
-    // 5. Persist state
-    saveSessionState(session_id, nextState);
-
-    // Save agent chat log
+    // Log agent response
     await saveChatLog({
       sessionId: session_id,
       senderRole: 'agent',
-      messageText: nextState.reply,
-      userId: user_id || nextState.user_id,
-      patientId: nextState.patient_id,
-      currentNode: nextState.current_node,
-      options: nextState.options,
+      messageText: result.reply,
+      userId: user_id || state.user_id,
+      patientId: state.patient_id,
+      currentNode: 'LLM_AGENT',
+      options: result.options,
     });
 
     return NextResponse.json({
-      reply: nextState.reply,
-      current_node: nextState.current_node,
-      options: nextState.options || [],
+      reply: result.reply,
+      current_node: 'LLM_AGENT',
+      options: result.options,
     });
   } catch (err: any) {
     console.error('[API /api/chat Error]:', err);
