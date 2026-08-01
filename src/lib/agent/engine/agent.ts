@@ -1,7 +1,7 @@
 import Groq from 'groq-sdk';
 import { AgentState, AgentTurnResult } from './types';
 import { CLINIC_HOURS, CLINIC_NAME, CLINIC_PHONE } from './prompts';
-import { AGENT_TOOLS, AgentToolName } from './tool-definitions';
+import { AgentToolName } from './tool-definitions';
 import {
   bookAppointment,
   cancelAppointment,
@@ -15,7 +15,8 @@ import {
   rescheduleAppointment,
 } from './tools';
 
-const MAX_TOOL_ROUNDS = 6;
+const FALLBACK_REPLY = "I'm here to help. How can I assist you today?";
+const FALLBACK_OPTIONS = ['Book Appointment', 'My Appointments', 'Call Clinic'];
 
 // ─── Groq Client ───────────────────────────────────────────────────────────────
 let _groq: Groq | null = null;
@@ -27,52 +28,15 @@ function getGroq(): Groq {
   }
   return _groq;
 }
+const MODEL = () => process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
-// ─── System Prompt ─────────────────────────────────────────────────────────────
-function buildSystemPrompt(state: AgentState): string {
-  const patientLine = state.patient_name
-    ? `The patient is ${state.patient_name}${state.patient_dob ? `, DOB ${state.patient_dob}` : ''}.`
-    : 'Patient not yet identified. Call lookupPatient before answering any personal questions.';
+// ─── Safe history builder ───────────────────────────────────────────────────────
+type SafeMsg = { role: 'user' | 'assistant'; content: string };
 
-  return `You are Sarah, an AI medical receptionist for ${CLINIC_NAME}.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ABSOLUTE RULES — NEVER BREAK THESE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. YOU MUST CALL A TOOL before answering ANY question about patient data, appointments, lab results, medications, or medical history. No exceptions.
-2. NEVER invent, guess, or hallucinate any information. If a tool returns no data, say "I don't have that on file" and offer next steps.
-3. NEVER use your training knowledge to answer medical questions about the patient. All answers must come from tool results only.
-4. NEVER say something like "based on your history" or "you are currently taking" unless a tool actually returned that data in this conversation.
-5. If asked about something not covered by your tools (e.g. general medical advice), say: "I'm not able to give medical advice. Please consult your doctor."
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WHEN TO CALL EACH TOOL:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Patient asks about lab results, blood work, or test results → getLabResults
-• Patient asks about medications, prescriptions, or drugs → getMedications
-• Patient asks about upcoming visits or their schedule → getUpcomingAppointments
-• Patient asks about their health history, conditions, or allergies → getPatientHistory
-• Patient asks about clinic hours, location, phone, or services → getClinicInfo
-• Patient asks about doctors or specialties → listDoctors
-• Patient wants to book an appointment → listDoctors, then getAvailableSlots, confirm details, then bookAppointment
-• Patient wants to cancel → getUpcomingAppointments, confirm with patient, then cancelAppointment
-• Patient wants to reschedule → getUpcomingAppointments, then getAvailableSlots, confirm, then rescheduleAppointment
-• Patient identity needed → lookupPatient (call this first if patient_id is unknown)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESPONSE RULES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• If a tool returns empty or "no data found" → tell the patient exactly that. Do NOT fill in with guesses.
-• Use bullet points (•) for lists of data.
-• Keep responses concise and warm. This system serves senior patients.
-• If the patient seems confused or needs human help: "You can reach our front desk at ${CLINIC_PHONE}."
-
-CLINIC: ${CLINIC_NAME} | Phone: ${CLINIC_PHONE} | Hours: ${CLINIC_HOURS}
-PATIENT: ${patientLine}
-
-At the very end of your message, on its own line, output:
-QUICK_REPLIES:["option1","option2"]
-Choose 2-4 natural follow-up actions. Omit this line entirely if none apply.`;
+function buildSafeHistory(state: AgentState): SafeMsg[] {
+  return state.messages
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && (m.content || '').trim())
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content.trim() }));
 }
 
 // ─── Tool Executor ─────────────────────────────────────────────────────────────
@@ -86,67 +50,35 @@ async function executeTool(
     switch (name) {
       case 'lookupPatient': {
         if (!state.user_id) return JSON.stringify({ error: 'No logged-in user.' });
-        const patient = await lookupPatientByUserId(state.user_id);
-        if (!patient) return JSON.stringify({ error: 'No patient record found.' });
-        state.patient_id   = patient.id;
-        state.patient_name = `${patient.first_name} ${patient.last_name}`;
-        state.patient_dob  = patient.dob;
-        return JSON.stringify({
-          id: patient.id, first_name: patient.first_name, last_name: patient.last_name,
-          dob: patient.dob, email: patient.email, phone: patient.phone, gender: patient.gender,
-        });
+        const p = await lookupPatientByUserId(state.user_id);
+        if (!p) return JSON.stringify({ error: 'No patient record found.' });
+        state.patient_id   = p.id;
+        state.patient_name = `${p.first_name} ${p.last_name}`;
+        state.patient_dob  = p.dob;
+        return JSON.stringify({ id: p.id, first_name: p.first_name, last_name: p.last_name, dob: p.dob, email: p.email, phone: p.phone });
       }
-
       case 'getClinicInfo':
-        return JSON.stringify({
-          name: CLINIC_NAME, phone: CLINIC_PHONE, hours: CLINIC_HOURS,
-          services: ['Primary Care', 'Cardiology', 'Wellness Checkups', 'Telehealth', 'Urgent Care'],
-          insurance: 'We accept most major insurance plans. Call for specific coverage questions.',
-          parking: 'Free parking available in our main lot.',
-          cancellation_policy: 'Please cancel or reschedule at least 24 hours in advance.',
-        });
-
+        return JSON.stringify({ name: CLINIC_NAME, phone: CLINIC_PHONE, hours: CLINIC_HOURS, services: ['Primary Care', 'Cardiology', 'Wellness Checkups', 'Telehealth', 'Urgent Care'] });
       case 'listDoctors': {
         const docs = await listDoctors();
-        return JSON.stringify(docs.map((d) => ({
-          id: d.id, name: `Dr. ${d.first_name} ${d.last_name}`, specialty: d.specialty || 'General Practice',
-        })));
+        return JSON.stringify(docs.map(d => ({ id: d.id, name: `Dr. ${d.first_name} ${d.last_name}`, specialty: d.specialty || 'General Practice' })));
       }
-
       case 'getUpcomingAppointments': {
         const appts = await getUpcomingAppointments(state.user_id, state.patient_id);
         if (!appts.length) return JSON.stringify({ message: 'No upcoming appointments found.' });
-        return JSON.stringify(appts.map((a: any) => ({
-          id: a.id, type: a.type, doctor: a.doctor_name,
-          scheduled_at: a.start_time || a.scheduled_at,
-        })));
+        return JSON.stringify(appts.map((a: any) => ({ id: a.id, type: a.type, doctor: a.doctor_name, scheduled_at: a.scheduled_at || a.start_time, duration_mins: a.duration_mins, provider_id: a.provider_id })));
       }
-
       case 'getAvailableSlots': {
         const doctorId = typeof args.doctor_id === 'string' ? args.doctor_id : undefined;
         const slots = await getAvailableSlots(doctorId);
         if (!slots.length) return JSON.stringify({ message: 'No available slots. Please call the clinic.' });
-        return JSON.stringify({
-          slots: slots.map((s) => ({
-            iso: s,
-            display: new Date(s).toLocaleString('en-US', {
-              weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-            }),
-          })),
-        });
+        return JSON.stringify({ slots: slots.map(s => ({ iso: s, display: new Date(s).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })) });
       }
-
       case 'bookAppointment': {
         if (!state.patient_id) return JSON.stringify({ success: false, error: 'Patient not identified. Call lookupPatient first.' });
-        const result = await bookAppointment({
-          patientId: state.patient_id,
-          doctorId: typeof args.doctor_id === 'string' ? args.doctor_id : undefined,
-          slotIso: args.slot_iso as string,
-          appointmentType: args.appointment_type as string,
-        });
+        const result = await bookAppointment({ patientId: state.patient_id, doctorId: typeof args.doctor_id === 'string' ? args.doctor_id : undefined, slotIso: args.slot_iso as string, appointmentType: args.appointment_type as string });
         return JSON.stringify(result);
       }
-
       case 'cancelAppointment': {
         const appts = await getUpcomingAppointments(state.user_id, state.patient_id);
         const apptId = (args.appointment_id as string) || (appts[0] as any)?.id;
@@ -154,48 +86,26 @@ async function executeTool(
         await cancelAppointment(apptId);
         return JSON.stringify({ success: true, cancelled_id: apptId });
       }
-
       case 'rescheduleAppointment': {
         const upcoming = await getUpcomingAppointments(state.user_id, state.patient_id);
         const rId = (args.appointment_id as string) || (upcoming[0] as any)?.id;
         if (!rId) return JSON.stringify({ success: false, error: 'No appointment to reschedule.' });
-        await rescheduleAppointment(rId, args.new_slot_iso as string);
-        return JSON.stringify({ success: true, new_slot: args.new_slot_iso });
+        const ok = await rescheduleAppointment(rId, args.new_slot_iso as string);
+        return JSON.stringify({ success: ok, appointment_id: rId, new_slot: args.new_slot_iso });
       }
-
       case 'getLabResults': {
         if (!state.patient_id) return JSON.stringify({ error: 'Patient not identified. Call lookupPatient first.' });
         const labs = await getPatientLabResults(state.patient_id);
         if (!labs.length) return JSON.stringify({ message: 'No lab results on file.' });
-        return JSON.stringify(labs.map((r) => ({
-          test: (r.lab_order as any)?.test_name || 'Lab Test',
-          component: r.component_name,
-          value: `${r.value} ${r.unit || ''}`.trim(),
-          flag: r.flag,
-          reference: r.reference_low && r.reference_high
-            ? `${r.reference_low}–${r.reference_high} ${r.unit || ''}`
-            : null,
-          date: r.resulted_at?.slice(0, 10),
-        })));
+        return JSON.stringify(labs.map(r => ({ test: (r.lab_order as any)?.test_name || 'Lab Test', component: r.component_name, value: `${r.value} ${r.unit || ''}`.trim(), flag: r.flag, date: r.resulted_at?.slice(0, 10) })));
       }
-
       case 'getMedications': {
         if (!state.patient_id) return JSON.stringify({ error: 'Patient not identified. Call lookupPatient first.' });
         const meds = await getPatientMedications(state.patient_id);
-        return JSON.stringify({
-          active: meds.active.map((m) => ({
-            drug: m.drug_name, generic: m.drug_generic_name,
-            dosage: m.dosage, frequency: m.frequency,
-            refills_remaining: m.refills_remaining, instructions: m.instructions,
-          })),
-          past: meds.past.slice(0, 5).map((m) => ({ drug: m.drug_name, status: m.status })),
-        });
+        return JSON.stringify({ active: meds.active.map(m => ({ drug: m.drug_name, dosage: m.dosage, frequency: m.frequency, refills_remaining: m.refills_remaining })), past: meds.past.slice(0, 3).map(m => ({ drug: m.drug_name, status: m.status })) });
       }
-
-      case 'getPatientHistory': {
+      case 'getPatientHistory':
         return await getPatientHistorySummary(state.user_id);
-      }
-
       default:
         return JSON.stringify({ error: `Unknown tool: ${name}` });
     }
@@ -205,116 +115,151 @@ async function executeTool(
   }
 }
 
-// ─── Parse Quick Replies ────────────────────────────────────────────────────────
-function extractQuickReplies(rawReply: string): { reply: string; options: string[] } {
-  const lines = rawReply.split('\n');
-  let qrLineIndex = -1;
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (lines[i].trim().startsWith('QUICK_REPLIES:')) {
-      qrLineIndex = i;
-      break;
-    }
-  }
-  if (qrLineIndex === -1) return { reply: rawReply.trim(), options: [] };
+// ─── Step 1: Plan which tools to call (JSON mode) ─────────────────────────────
+interface ToolCall { name: AgentToolName; args: Record<string, unknown>; }
+interface ToolPlan {
+  tools: ToolCall[];
+  needs_clarification: boolean;
+  clarification_message: string;
+}
 
-  let options: string[] = [];
+async function planTools(history: SafeMsg[], state: AgentState): Promise<ToolPlan> {
+  const groq = getGroq();
+  const patientCtx = state.patient_id
+    ? `Patient identified: ${state.patient_name}, patient_id=${state.patient_id}`
+    : 'Patient NOT identified (no patient_id). Must call lookupPatient before any personal data query.';
+
+  const planPrompt = `You are a medical clinic assistant that decides which tools to call.
+Given the conversation, return a JSON plan of tools to call to answer the patient's latest message.
+
+SESSION: ${patientCtx}
+
+AVAILABLE TOOLS:
+- lookupPatient — get patient info (call first if patient_id unknown and personal data needed)
+- getClinicInfo — clinic hours, phone, address, services
+- listDoctors — all doctors with their IDs and specialties
+- getUpcomingAppointments — patient's scheduled upcoming visits
+- getAvailableSlots — args: {doctor_id?} — open time slots
+- bookAppointment — args: {doctor_id, slot_iso, appointment_type} — book after confirmed
+- cancelAppointment — args: {appointment_id?} — cancel after confirmed by patient
+- rescheduleAppointment — args: {appointment_id, new_slot_iso} — after patient picks new slot
+- getLabResults — patient's lab test results
+- getMedications — patient's medications
+- getPatientHistory — patient's medical history
+
+BOOKING FLOW: listDoctors first → getAvailableSlots → patient picks → bookAppointment
+RESCHEDULE FLOW: getUpcomingAppointments first → getAvailableSlots → patient picks → rescheduleAppointment
+CANCEL FLOW: getUpcomingAppointments first → confirm → cancelAppointment
+
+If you need patient confirmation before executing a destructive action (book/cancel/reschedule), set needs_clarification=true.
+
+Return ONLY valid JSON (no markdown):
+{"tools":[{"name":"toolName","args":{}}],"needs_clarification":false,"clarification_message":""}`;
+
+  // Only include last 6 messages to keep context tight
+  const recentHistory = history.slice(-6);
+
   try {
-    const jsonPart = lines[qrLineIndex].trim().replace('QUICK_REPLIES:', '').trim();
-    options = JSON.parse(jsonPart);
-  } catch { options = []; }
+    const resp = await groq.chat.completions.create({
+      model: MODEL(),
+      messages: [
+        { role: 'system', content: planPrompt },
+        ...recentHistory,
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: 400,
+    });
+    const raw = (resp.choices[0]?.message?.content || '{}').trim();
+    const parsed = JSON.parse(raw);
+    return {
+      tools: Array.isArray(parsed.tools) ? parsed.tools : [],
+      needs_clarification: Boolean(parsed.needs_clarification),
+      clarification_message: (parsed.clarification_message || '').trim(),
+    };
+  } catch (err: any) {
+    console.error('[planTools] Error:', err.message);
+    return { tools: [], needs_clarification: false, clarification_message: '' };
+  }
+}
 
-  return { reply: lines.slice(0, qrLineIndex).join('\n').trim(), options };
+// ─── Step 2: Generate reply using tool results (JSON mode) ────────────────────
+async function generateReply(
+  history: SafeMsg[],
+  toolResultsContext: string,
+  state: AgentState,
+): Promise<AgentTurnResult> {
+  const groq = getGroq();
+  const patientLine = state.patient_name ? `Patient: ${state.patient_name}` : '';
+
+  // Inject tool results into the system prompt — NO extra user messages added
+  const toolSection = toolResultsContext
+    ? `\n\nDATA FROM CLINIC SYSTEMS (answer using ONLY this data, do not add anything else):\n${toolResultsContext}`
+    : '';
+
+  const systemContent = `You are Sarah, a warm AI medical receptionist for ${CLINIC_NAME}.
+${patientLine}
+RULES: Only use data from "DATA FROM CLINIC SYSTEMS". NEVER invent information. If no data provided, say so clearly.
+Use bullet points for lists. Be warm and concise. Never give medical advice.
+CLINIC: ${CLINIC_NAME} | ${CLINIC_PHONE} | ${CLINIC_HOURS}${toolSection}
+
+You MUST respond with a JSON object (no markdown, no explanation):
+{"reply":"your warm message to the patient","options":["followup1","followup2"]}
+options = 2-4 natural next actions the patient can take, or empty array.`;
+
+  // Only the most recent messages (last 8) to keep history tight
+  const recentHistory = history.slice(-8);
+
+  try {
+    const resp = await groq.chat.completions.create({
+      model: MODEL(),
+      messages: [
+        { role: 'system', content: systemContent },
+        ...recentHistory,
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.5,
+      max_tokens: 900,
+    });
+    const raw = (resp.choices[0]?.message?.content || '{}').trim();
+    const parsed = JSON.parse(raw);
+    const reply = (parsed.reply || '').trim();
+    const options: string[] = Array.isArray(parsed.options) ? parsed.options.filter(Boolean) : [];
+    if (reply) return { reply, options: options.length ? options : FALLBACK_OPTIONS };
+  } catch (err: any) {
+    console.error('[generateReply] Error:', err.message, '| status:', err.status);
+  }
+
+  return { reply: FALLBACK_REPLY, options: FALLBACK_OPTIONS };
 }
 
 // ─── Main Agent Runner ─────────────────────────────────────────────────────────
-/**
- * KEY DESIGN DECISION: Tool-call messages are ephemeral within a single turn.
- * Between turns, only plain user/assistant text messages are persisted in state.messages.
- * This prevents Groq from rejecting history that contains tool-call assistant messages
- * without their corresponding tool_calls arrays (which causes the "empty output" error).
- */
 export async function runAgent(
   state: AgentState,
   _userMessage: string,
 ): Promise<AgentTurnResult> {
-  const groq = getGroq();
-  const systemPrompt = buildSystemPrompt(state);
+  // 1. Build safe, clean conversation history
+  const history = buildSafeHistory(state);
 
-  // Build the base history from persisted text messages only (user + assistant text)
-  // This is safe to send across turns — no tool_calls, no null content
-  const baseHistory: any[] = state.messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role, content: m.content }));
+  // 2. Plan which tools to call
+  const plan = await planTools(history, state);
 
-  // Within-turn working history — starts as a copy, grows as tools are called
-  const turnHistory: any[] = [...baseHistory];
-
-  let finalReply = "I'm here to help. How can I assist you today?";
-  let finalOptions: string[] = ['Book Appointment', 'My Appointments', 'Call Clinic'];
-
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    let response: any;
-    try {
-      response = await groq.chat.completions.create({
-        model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: systemPrompt }, ...turnHistory],
-        temperature: 0.45,
-        max_tokens: 1024,
-        tools: AGENT_TOOLS as any,
-        tool_choice: 'auto',
-      });
-    } catch (err: any) {
-      console.error('[Agent LLM Error]:', err.message);
-      return {
-        reply: "I'm having trouble connecting right now. Please try again or call our clinic.",
-        options: ['Try Again', 'Call Clinic'],
-      };
-    }
-
-    const choice = response.choices[0];
-    const msg = choice.message;
-    const finishReason = choice.finish_reason;
-
-    // ── LLM wants to call tools ─────────────────────────────────
-    if (finishReason === 'tool_calls' && msg.tool_calls?.length) {
-      // Add the full assistant tool-call message (with tool_calls array) to turn history
-      turnHistory.push({
-        role: 'assistant',
-        content: msg.content ?? null,
-        tool_calls: msg.tool_calls,
-      });
-
-      // Execute every requested tool and append results
-      for (const tc of msg.tool_calls) {
-        let toolArgs: Record<string, unknown> = {};
-        try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { toolArgs = {}; }
-
-        const result = await executeTool(tc.function.name as AgentToolName, toolArgs, state);
-
-        turnHistory.push({
-          role: 'tool',
-          content: result,
-          tool_call_id: tc.id,
-        });
-      }
-      // Loop: let LLM see the tool results and produce its response
-      continue;
-    }
-
-    // ── LLM produced a final text reply ────────────────────────
-    const rawReply = (msg.content || '').trim();
-    if (!rawReply) break; // Safety: empty reply, exit loop
-
-    const parsed = extractQuickReplies(rawReply);
-    finalReply   = parsed.reply || rawReply;
-    finalOptions = parsed.options.length > 0 ? parsed.options : finalOptions;
-    break;
+  // 3. If needs patient confirmation first, return the clarification question
+  if (plan.needs_clarification && plan.clarification_message) {
+    return {
+      reply: plan.clarification_message,
+      options: ['Yes, go ahead', 'No, cancel', 'Choose different time'],
+    };
   }
 
-  // Persist ONLY plain text messages back to state (no tool_calls, no null content)
-  // The current user message is already in state.messages (added by route.ts before calling runAgent)
-  // We just need to ensure we don't double-add anything — state.messages is the source of truth
-  // for next-turn context.
+  // 4. Execute all planned tools
+  const toolResultParts: string[] = [];
+  for (const tc of plan.tools) {
+    const result = await executeTool(tc.name, tc.args || {}, state);
+    toolResultParts.push(`[${tc.name}]: ${result}`);
+  }
+  const toolResultsContext = toolResultParts.join('\n\n');
 
-  return { reply: finalReply, options: finalOptions };
+  // 5. Generate the final patient-facing reply
+  return generateReply(history, toolResultsContext, state);
 }

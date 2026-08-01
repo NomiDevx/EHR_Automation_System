@@ -121,24 +121,27 @@ export async function getAvailableSlots(providerId?: string): Promise<string[]> 
     const now = new Date();
     const slots: string[] = [];
 
-    // Generate 4 upcoming slot datetimes starting tomorrow
-    for (let dayOffset = 1; dayOffset <= 3; dayOffset++) {
+    // Scan up to 10 days ahead to ensure we get 4 weekday slots even across weekends
+    for (let dayOffset = 1; dayOffset <= 10 && slots.length < 4; dayOffset++) {
       const targetDate = new Date(now);
       targetDate.setDate(now.getDate() + dayOffset);
 
-      // Avoid weekends
-      if (targetDate.getDay() === 0 || targetDate.getDay() === 6) continue;
+      // Skip weekends
+      const day = targetDate.getDay();
+      if (day === 0 || day === 6) continue;
 
-      const hour1 = new Date(targetDate);
-      hour1.setHours(9, 30, 0, 0);
-      slots.push(hour1.toISOString());
+      const morning = new Date(targetDate);
+      morning.setHours(9, 0, 0, 0);
+      slots.push(morning.toISOString());
 
-      const hour2 = new Date(targetDate);
-      hour2.setHours(14, 0, 0, 0);
-      slots.push(hour2.toISOString());
+      if (slots.length < 4) {
+        const afternoon = new Date(targetDate);
+        afternoon.setHours(14, 0, 0, 0);
+        slots.push(afternoon.toISOString());
+      }
     }
 
-    return slots.slice(0, 4);
+    return slots;
   } catch (err) {
     console.error('[getAvailableSlots] Error:', err);
     return [];
@@ -209,32 +212,41 @@ export async function getUpcomingAppointments(userId?: string, patientId?: strin
 
     const { data, error } = await supabase
       .from('appointments')
-      .select(`
-        id,
-        start_time,
-        end_time,
-        type,
-        status,
-        reason,
-        doctors (
-          profiles (first_name, last_name)
-        )
-      `)
+      .select('id, scheduled_at, duration_mins, type, status, chief_complaint, provider_id')
       .eq('patient_id', pId)
-      .gte('start_time', new Date().toISOString())
+      .gte('scheduled_at', new Date().toISOString())
       .eq('status', 'scheduled')
-      .order('start_time', { ascending: true });
+      .order('scheduled_at', { ascending: true });
 
     if (error || !data) return [];
 
-    return data.map((a: any) => ({
-      id: a.id,
-      start_time: a.start_time,
-      type: a.type,
-      doctor_name: a.doctors?.profiles
-        ? `Dr. ${a.doctors.profiles.first_name} ${a.doctors.profiles.last_name}`
-        : 'Doctor',
-    }));
+    // Fetch provider names separately
+    const results = await Promise.all(
+      data.map(async (a: any) => {
+        let doctorName = 'Doctor';
+        if (a.provider_id) {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', a.provider_id)
+            .maybeSingle();
+          if (p) doctorName = `Dr. ${p.first_name} ${p.last_name}`;
+        }
+        return {
+          id: a.id,
+          scheduled_at: a.scheduled_at,
+          start_time: a.scheduled_at, // alias for compatibility
+          duration_mins: a.duration_mins,
+          type: a.type,
+          status: a.status,
+          chief_complaint: a.chief_complaint,
+          doctor_name: doctorName,
+          provider_id: a.provider_id,
+        };
+      })
+    );
+
+    return results;
   } catch (err) {
     console.error('[getUpcomingAppointments] Error:', err);
     return [];
@@ -259,18 +271,21 @@ export async function cancelAppointment(appointmentId: string): Promise<boolean>
 export async function rescheduleAppointment(appointmentId: string, newSlotIso: string): Promise<boolean> {
   try {
     const supabase = createAdminClient();
-    const endTime = new Date(new Date(newSlotIso).getTime() + 30 * 60000).toISOString();
 
     const { error } = await supabase
       .from('appointments')
       .update({
-        start_time: newSlotIso,
-        end_time: endTime,
+        scheduled_at: newSlotIso,
+        duration_mins: 30,
         status: 'scheduled',
       })
       .eq('id', appointmentId);
 
-    return !error;
+    if (error) {
+      console.error('[rescheduleAppointment] Supabase error:', error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error('[rescheduleAppointment] Error:', err);
     return false;
@@ -294,9 +309,9 @@ export async function getPatientHistorySummary(userId?: string): Promise<string>
 
     const { data: appts } = await supabase
       .from('appointments')
-      .select('start_time, type, status')
+      .select('scheduled_at, type, status')
       .eq('patient_id', patient.id)
-      .order('start_time', { ascending: false })
+      .order('scheduled_at', { ascending: false })
       .limit(3);
 
     let summary = `Patient: ${patient.first_name} ${patient.last_name} (DOB: ${patient.dob})\n`;
@@ -304,7 +319,7 @@ export async function getPatientHistorySummary(userId?: string): Promise<string>
       summary += `Recent Medical Conditions: ${conditions.map((c: any) => c.diagnosis).join(', ')}\n`;
     }
     if (appts && appts.length > 0) {
-      summary += `Recent Appointments: ${appts.map((a: any) => `${a.type} on ${new Date(a.start_time).toLocaleDateString()}`).join(', ')}`;
+      summary += `Recent Appointments: ${appts.map((a: any) => `${a.type} on ${new Date(a.scheduled_at).toLocaleDateString()}`).join(', ')}`;
     }
 
     return summary;

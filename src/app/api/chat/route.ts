@@ -34,8 +34,10 @@ export async function POST(req: NextRequest) {
     // 3. Run the LLM-driven agent (tool selection + execution + reply)
     const result = await runAgent(state, message);
 
-    // 4. Add assistant reply to history
-    state.messages.push({ role: 'assistant', content: result.reply });
+    // 4. Add assistant reply to history (only if non-empty — Groq rejects null/empty assistant messages)
+    if (result.reply && result.reply.trim()) {
+      state.messages.push({ role: 'assistant', content: result.reply.trim() });
+    }
     state.reply = result.reply;
     state.options = result.options;
 
