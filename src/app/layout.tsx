@@ -7,12 +7,17 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | MediCore EHR",
-    default: "MediCore EHR",
+    template: "%s | MediSynx EHR",
+    default: "MediSynx EHR | Smart Records. Better Care.",
   },
   description:
-    "MediCore — A full-featured Electronic Health Records system for modern medical practices. Portfolio/demo project.",
-  keywords: ["EHR", "electronic health records", "medical records", "healthcare"],
+    "MediSynx EHR — Next-generation Electronic Health Records platform designed for modern medical practices, outpatient care, and virtual telehealth.",
+  keywords: ["MediSynx EHR", "electronic health records", "medical records", "telehealth", "smart records"],
+  icons: {
+    icon: "/images/image.png",
+    shortcut: "/images/image.png",
+    apple: "/images/image.png",
+  },
 };
 
 export default function RootLayout({
@@ -22,7 +27,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased bg-[#F8FAFC] text-[#0F172A]`}>
         <Providers>{children}</Providers>
       </body>
     </html>

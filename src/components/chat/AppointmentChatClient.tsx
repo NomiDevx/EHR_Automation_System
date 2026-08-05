@@ -98,55 +98,54 @@ export function AppointmentChatClient() {
   }, [sessionId]);
 
   const sendMessage = useCallback(
-    async (text: string, options?: { isRetry?: boolean }) => {
-      const trimmed = text.trim();
-      const activeSessionId = sessionId || getOrCreateSessionId();
+    async (textToSend: string, options?: { isRetry?: boolean }) => {
+      const cleanText = textToSend.trim();
+      if (!cleanText || isLoading) return;
 
-      if (!trimmed || !activeSessionId || isLoading) return;
-
-      // Stop any active speech output when user sends a new message
       handleStopSpeaking();
+      setError(null);
+      setLastFailedMessage(null);
 
       if (!options?.isRetry) {
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: 'user', text: trimmed },
-        ]);
+        const userMsg: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          text: cleanText,
+        };
+        setMessages((prev) => [...prev, userMsg]);
         setInput('');
-        setInterimTranscript('');
       }
 
       setIsLoading(true);
-      setError(null);
-      setLastFailedMessage(trimmed);
 
       try {
-        const response = await sendAgentMessage(activeSessionId, trimmed, currentUserId);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'bot',
-            text: response.reply,
-            options: response.options.length > 0 ? response.options : undefined,
-          },
-        ]);
-        setLastFailedMessage(null);
+        const activeSessionId = sessionId || getOrCreateSessionId();
+        if (!sessionId && activeSessionId) {
+          setSessionId(activeSessionId);
+        }
 
-        // Read out loud when autoReadAloud is active
-        if (autoReadAloud) {
-          speak(
-            response.reply,
-            () => setIsAgentSpeaking(true),
-            () => setIsAgentSpeaking(false),
-          );
+        const response = await sendAgentMessage(cleanText, activeSessionId, currentUserId);
+
+        const assistantMsg: ChatMessage = {
+          id: `assistant-${Date.now()}`,
+          role: 'bot',
+          text: response.reply,
+          options: (response as any).options ?? undefined,
+        };
+
+        setMessages((prev) => [...prev, assistantMsg]);
+
+        if (autoReadAloud && response.reply) {
+          setIsAgentSpeaking(true);
+          speak(response.reply, () => setIsAgentSpeaking(false));
         }
       } catch (err) {
-        const message =
-          err instanceof AgentApiError
-            ? err.message
-            : 'Something went wrong. Please try again.';
-        setError(message);
+        setLastFailedMessage(cleanText);
+        if (err instanceof AgentApiError) {
+          setError(err.message);
+        } else {
+          setError('Communication error. Please check your connection and try again.');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -159,10 +158,8 @@ export function AppointmentChatClient() {
   useEffect(() => {
     speechControllerRef.current = createSpeechRecognition(
       (transcript) => {
-        // Feed final transcript into the input textfield first
         setInput(transcript);
         setInterimTranscript('');
-        // Brief 600ms delay so user visually sees the recognized text in the field before submitting
         setTimeout(() => {
           void sendMessageRef.current(transcript);
         }, 600);
@@ -175,7 +172,6 @@ export function AppointmentChatClient() {
         setIsListening(false);
       },
       (interim) => {
-        // Stream interim spoken words live into input textfield & banner
         setInterimTranscript(interim);
         setInput(interim);
       },
@@ -206,7 +202,6 @@ export function AppointmentChatClient() {
       return;
     }
 
-    // Silence any active agent voice playback when user turns on mic
     handleStopSpeaking();
     setError(null);
     setIsListening(true);
@@ -233,37 +228,37 @@ export function AppointmentChatClient() {
 
   if (isAuthenticated === false) {
     return (
-      <div className="max-w-md mx-auto my-8 p-8 bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl shadow-xl text-center space-y-5">
-        <div className="w-16 h-16 mx-auto rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400">
+      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-[#E2E8F0] rounded-3xl shadow-xl text-center space-y-6 animate-fade-in">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center text-[#0891B2]">
           <Lock className="w-8 h-8" />
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-bold text-[hsl(var(--foreground))]">
+          <h2 className="font-cambria text-2xl font-bold text-[#0B2A55]">
             Authentication Required
           </h2>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
-            Please sign in to chat with our appointment assistant and book your visit.
+          <p className="text-xs text-[#475569] leading-relaxed">
+            Please sign in to your MediSynx patient account to chat with our AI booking assistant.
           </p>
         </div>
 
         <Link
           href="/login?next=/assistant"
-          className="inline-flex items-center justify-center gap-2 w-full min-h-[48px] px-6 py-3 rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-semibold hover:brightness-110 transition-all shadow-md"
+          className="inline-flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white font-bold text-xs hover:opacity-95 transition-all shadow-md"
         >
-          <LogIn className="w-5 h-5" />
-          <span>Sign In to Book Appointment</span>
+          <LogIn className="w-4 h-4" />
+          <span>Sign In to Access Assistant</span>
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="relative max-w-3xl mx-auto w-full">
+    <div className="relative max-w-6xl mx-auto w-full">
       <div
         className={cn(
-          'flex flex-col h-[calc(100vh-180px)] min-h-[500px] max-h-[800px]',
-          'bg-[hsl(var(--background))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden shadow-lg',
+          'flex flex-col h-[calc(100vh-210px)] min-h-[580px]',
+          'bg-white border border-[#E2E8F0] rounded-3xl overflow-hidden shadow-xl',
         )}
         data-large-font={largeFont ? 'true' : 'false'}
         data-high-contrast={highContrast ? 'true' : 'false'}
@@ -282,7 +277,7 @@ export function AppointmentChatClient() {
 
         {error && (
           <div
-            className="mx-4 mt-4 alert-error flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+            className="mx-4 mt-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-700 text-xs font-semibold flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
             role="alert"
             aria-live="assertive"
           >
@@ -292,9 +287,9 @@ export function AppointmentChatClient() {
                 type="button"
                 onClick={handleRetry}
                 disabled={isLoading}
-                className="min-h-[44px] px-4 py-2 rounded-lg bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))] text-sm font-medium hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--destructive))] shrink-0"
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold hover:bg-red-700 transition-all shrink-0"
               >
-                Retry
+                Retry Message
               </button>
             )}
           </div>

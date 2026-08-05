@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { MessagesClient } from './client';
+import { UnifiedMessagingClient, type MessagingContact } from '@/components/messaging/UnifiedMessagingClient';
+import { MessageSquare, Sparkles } from 'lucide-react';
 
-export const metadata: Metadata = { title: 'Messages' };
+export const metadata: Metadata = { title: 'Messages | MediSynx EHR' };
 
 export default async function PortalMessagesPage({
   searchParams,
@@ -14,8 +15,11 @@ export default async function PortalMessagesPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-  const { data: patient } = await supabase.from('patients').select('id, primary_provider_id').eq('profile_id', user.id).single();
+  const { data: patient } = await supabase
+    .from('patients')
+    .select('id, primary_provider_id')
+    .eq('profile_id', user.id)
+    .maybeSingle();
 
   const { data: messages } = await supabase
     .from('messages')
@@ -23,26 +27,49 @@ export default async function PortalMessagesPage({
     .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
-  // Use admin client to bypass profiles RLS select restriction for patients
   const adminSupabase = createAdminClient();
   const { data: providers } = await adminSupabase
     .from('profiles')
-    .select('id, first_name, last_name, specialty')
+    .select('id, first_name, last_name, specialty, role')
     .in('role', ['doctor', 'nurse'])
     .eq('is_active', true)
     .order('last_name', { ascending: true });
 
+  const contacts: MessagingContact[] = (providers ?? []).map((p: any) => ({
+    id: p.id,
+    name: `Dr. ${p.first_name} ${p.last_name}`,
+    subTitle: p.specialty || 'General Practitioner',
+    role: p.role,
+    patientId: patient?.id ?? undefined,
+  }));
+
   const defaultRecipientId = searchParams?.to || '';
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Messages</h1>
-      <MessagesClient
+    <div className="space-y-8 max-w-7xl mx-auto animate-fade-in">
+      {/* Header Banner */}
+      <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#0B2A55]/10 text-[#0B2A55] border border-[#0B2A55]/20">
+            <Sparkles className="w-3.5 h-3.5" /> Care Team Communications
+          </span>
+          <h1 className="font-cambria text-2xl sm:text-3xl font-bold text-[#0B2A55]">Ask Doctor / Messages</h1>
+          <p className="text-xs sm:text-sm text-[#475569]">
+            Select a physician from your care team to ask a question or discuss test results.
+          </p>
+        </div>
+
+        <div className="w-12 h-12 rounded-2xl bg-[#0B2A55]/10 border border-[#0B2A55]/20 flex items-center justify-center text-[#0B2A55] shrink-0">
+          <MessageSquare className="w-6 h-6" />
+        </div>
+      </div>
+
+      <UnifiedMessagingClient
         messages={messages ?? []}
         currentUserId={user.id}
-        providers={providers ?? []}
-        patientId={patient?.id ?? null}
+        contacts={contacts}
         defaultRecipientId={defaultRecipientId}
+        isStaff={false}
       />
     </div>
   );

@@ -2,13 +2,15 @@
 
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
-import { Input, Button } from '@/components/ui';
-import { Cross, Eye, EyeOff, ShieldCheck, ArrowRight, Activity, Users, Award } from 'lucide-react';
+import { Input } from '@/components/ui';
+import { CustomLoader } from '@/components/ui/CustomLoader';
+import { Eye, EyeOff, ShieldCheck, ArrowRight, Activity, Users, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UserRole } from '@/lib/types/database';
 import { bookPublicAppointment } from '@/app/actions';
@@ -29,7 +31,7 @@ type FormData = z.infer<typeof schema>;
 
 const TRUST_POINTS = [
   { icon: ShieldCheck, label: 'End-to-end encrypted records' },
-  { icon: Users, label: '12,000+ patients served' },
+  { icon: Users, label: '15,000+ patients served' },
   { icon: Activity, label: 'Real-time clinical updates' },
   { icon: Award, label: 'Board-certified clinicians' },
 ];
@@ -102,7 +104,6 @@ function LoginForm() {
       }
     }
 
-    // Redirect handling with next query param validation (Open Redirect protection)
     const nextParam = params.get('next');
     let targetUrl = ROLE_HOME[role];
 
@@ -135,52 +136,54 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="min-h-screen flex w-full relative">
+      {/* Custom Auth Loading Spinner */}
+      {isSubmitting && <CustomLoader fullScreen={true} message="Authenticating..." />}
 
-      {/* ── Left Panel — deep navy, editorial ───────────────────── */}
-      <div
-        className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 relative overflow-hidden"
-        style={{ background: 'hsl(220,45%,11%)' }}
-      >
-        {/* Subtle radial glows */}
+      {/* ── Left Panel — Navy (#0B2A55) Brand Sidebar ──────────── */}
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 bg-[#0B2A55] text-white relative overflow-hidden">
+        {/* Cyan & Teal Background Glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-0 w-[500px] h-[500px] rounded-full bg-[hsl(43,62%,48%)]/6 blur-[120px]" />
-          <div className="absolute bottom-0 right-0 w-[400px] h-[400px] rounded-full bg-[hsl(215,75%,55%)]/8 blur-[100px]" />
+          <div className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-[#0891B2]/20 blur-[120px]" />
+          <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-[#14B8A6]/20 blur-[100px]" />
         </div>
 
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[hsl(43,62%,48%)]/15 border border-[hsl(43,62%,48%)]/30">
-            <Cross className="w-5 h-5 text-[hsl(43,62%,65%)] fill-[hsl(43,62%,65%)]" />
-          </div>
-          <span className="font-display text-xl font-semibold text-white tracking-wide">
-            Medi<span className="text-[hsl(43,62%,60%)]">Core</span>
-          </span>
+        {/* Prominent Large Logo Box */}
+        <div className="relative z-10">
+          <Link href="/" className="inline-flex items-center bg-white border border-[#E2E8F0] p-3.5 rounded-2xl shadow-sm w-48 sm:w-60 h-16 sm:h-20">
+            <Image
+              src="/images/image.png"
+              alt="MediSynx EHR Logo"
+              width={240}
+              height={80}
+              className="object-contain w-full h-full p-0.5"
+              priority
+            />
+          </Link>
         </div>
 
-        {/* Center editorial block */}
+        {/* Center Editorial Block */}
         <div className="relative z-10 space-y-8">
-          {/* Gold accent line */}
-          <div className="w-10 h-px bg-[hsl(43,62%,48%)]" />
+          <div className="w-12 h-1 bg-gradient-to-r from-[#0891B2] via-[#14B8A6] to-[#4CAF50] rounded-full" />
 
           <div className="space-y-4">
-            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(43,62%,55%)]">
+            <span className="text-xs font-bold tracking-widest uppercase text-[#22D3EE] bg-[#0891B2]/20 px-3 py-1 rounded-full border border-[#0891B2]/30">
               Secure Patient Portal
-            </p>
-            <h2 className="font-display text-4xl font-600 text-white leading-tight">
+            </span>
+            <h2 className="font-cambria text-4xl font-bold text-white leading-tight">
               Your health,<br />always within reach.
             </h2>
-            <p className="text-sm text-[hsl(215,20%,60%)] leading-relaxed max-w-sm">
+            <p className="text-sm text-slate-300 leading-relaxed max-w-sm">
               Access appointments, clinical records, lab results, prescriptions, and secure messages with your care team — all in one place.
             </p>
           </div>
 
           {/* Trust points */}
-          <ul className="space-y-3">
+          <ul className="space-y-3.5">
             {TRUST_POINTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3 text-sm text-[hsl(215,15%,65%)]">
-                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[hsl(43,62%,48%)]/10 border border-[hsl(43,62%,48%)]/20 shrink-0">
-                  <Icon className="w-3.5 h-3.5 text-[hsl(43,62%,55%)]" />
+              <li key={label} className="flex items-center gap-3 text-sm text-slate-200 font-medium">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#0891B2]/20 border border-[#0891B2]/30 shrink-0">
+                  <Icon className="w-4 h-4 text-[#22D3EE]" />
                 </span>
                 {label}
               </li>
@@ -188,48 +191,50 @@ function LoginForm() {
           </ul>
         </div>
 
-        {/* Bottom tagline */}
+        {/* Tagline Footer */}
         <div className="relative z-10">
-          <p className="text-xs text-[hsl(215,15%,40%)]">
-            © {new Date().getFullYear()} MediCore Healthcare · Demo Portfolio
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} MediSynx EHR · Smart Records. Better Care.
           </p>
         </div>
       </div>
 
-      {/* ── Right Panel — form ──────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[hsl(var(--background))] relative">
-        {/* Soft background glows */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-48 -right-48 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-          <div className="absolute -bottom-48 -left-48 w-[400px] h-[400px] rounded-full bg-[hsl(var(--accent))]/5 blur-[100px]" />
-        </div>
-
+      {/* ── Right Panel — Form ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[#F8FAFC] relative">
         <div className="relative z-10 w-full max-w-[420px] animate-slide-up space-y-8">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[hsl(var(--primary))] mb-1">
-              <Cross className="w-6 h-6 text-white fill-white" />
+          {/* Mobile Logo Header */}
+          <div className="lg:hidden text-center space-y-3">
+            <div className="inline-flex items-center justify-center bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-sm mb-1 w-44 h-14">
+              <Image
+                src="/images/image.png"
+                alt="MediSynx EHR Logo"
+                width={180}
+                height={60}
+                className="object-contain w-full h-full"
+              />
             </div>
-            <h1 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">
-              Medi<span className="text-[hsl(var(--accent))]">Core</span> EHR
+            <h1 className="font-cambria text-2xl font-bold text-[#0B2A55]">
+              Sign In to MediSynx EHR
             </h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Sign in to your portal account</p>
+            <p className="text-sm text-[#475569]">Access your patient dashboard</p>
           </div>
 
-          {/* Heading */}
-          <div className="hidden lg:block space-y-1">
-            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))]">Welcome Back</p>
-            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">Sign In</h2>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] pt-1">
+          {/* Desktop Heading */}
+          <div className="hidden lg:block space-y-1.5">
+            <span className="text-xs font-bold tracking-widest uppercase text-[#0891B2]">
+              Welcome Back
+            </span>
+            <h2 className="font-cambria text-3xl font-bold text-[#0B2A55]">Sign In</h2>
+            <p className="text-sm text-[#475569]">
               Access your patient dashboard and clinical records.
             </p>
           </div>
 
           {/* Session alerts */}
           {reason && reasonMsg[reason] && (
-            <div className="alert-warning text-sm">
-              <ShieldCheck className="w-4 h-4 shrink-0" />
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 text-sm flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
               <span>{reasonMsg[reason]}</span>
             </div>
           )}
@@ -247,7 +252,7 @@ function LoginForm() {
             />
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="login-password" className="text-xs font-medium text-[hsl(var(--muted-foreground))]">
+              <label htmlFor="login-password" className="text-xs font-semibold text-[#0F172A]">
                 Password
               </label>
               <div className="relative">
@@ -265,18 +270,17 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors"
-                  id="toggle-password-btn"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] transition-colors"
                   aria-label="Toggle password visibility"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+              {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
             </div>
 
             {error && (
-              <div className="alert-error text-sm">
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 text-sm">
                 <span>{error}</span>
               </div>
             )}
@@ -285,7 +289,7 @@ function LoginForm() {
               type="submit"
               disabled={isSubmitting}
               id="login-submit-btn"
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold tracking-wide hover:bg-[hsl(220,55%,28%)] disabled:opacity-60 transition-all duration-200 shadow-md"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-sm font-bold tracking-wide hover:opacity-95 disabled:opacity-60 transition-all duration-200 shadow-md"
             >
               {isSubmitting ? (
                 <>
@@ -303,22 +307,18 @@ function LoginForm() {
             </button>
           </form>
 
-          {/* Divider + link */}
-          <div className="pt-1 border-t border-[hsl(var(--border))] text-center">
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
+          {/* Create account link */}
+          <div className="pt-2 border-t border-[#E2E8F0] text-center">
+            <p className="text-sm text-[#475569] mt-4">
               New patient?{' '}
               <Link
                 href={getSignupUrl()}
-                className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
+                className="text-[#0891B2] font-bold hover:underline underline-offset-2 transition-colors"
               >
                 Create a portal account
               </Link>
             </p>
           </div>
-
-          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] opacity-50">
-            ⚠️ Demo / Portfolio — not a certified HIPAA system
-          </p>
         </div>
       </div>
     </div>
@@ -327,11 +327,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(220,45%,11%)] text-white font-display text-xl">
-        Loading…
-      </div>
-    }>
+    <Suspense fallback={<CustomLoader message="Preparing login..." />}>
       <LoginForm />
     </Suspense>
   );

@@ -3,11 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { addPatientVital, addPatientAllergy } from '@/app/actions';
-import { Button, Input, Select, Textarea, Card } from '@/components/ui';
-import { 
-  Activity, ShieldAlert, Plus, X, Heart, 
-  Scale, Thermometer, AlertOctagon, Calendar 
-} from 'lucide-react';
+import { Activity, ShieldAlert, Plus, X, Heart, Scale, Thermometer, AlertOctagon, Calendar, Sparkles } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -25,10 +21,10 @@ const SEVERITY_OPTIONS = [
 ];
 
 const SEVERITY_BADGES = {
-  mild: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
-  moderate: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
-  severe: 'bg-orange-500/10 text-orange-400 border-orange-500/25',
-  life_threatening: 'bg-red-500/10 text-red-400 border-red-500/25 animate-pulse',
+  mild: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+  moderate: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+  severe: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  life_threatening: 'bg-red-500/10 text-red-600 border-red-500/20 animate-pulse font-bold',
 };
 
 export function PortalRecordsClient({ patientId, initialVitals, initialAllergies }: PortalRecordsClientProps) {
@@ -131,151 +127,164 @@ export function PortalRecordsClient({ patientId, initialVitals, initialAllergies
     }
   };
 
-  const calculateBmi = (wStr: string, hStr: string) => {
-    const w = parseFloat(wStr);
-    const h = parseFloat(hStr);
-    if (!w || !h || h <= 0) return null;
-    return ((w / (h * h)) * 703).toFixed(1);
-  };
-
   return (
     <div className="space-y-6">
       {/* Navigation tabs */}
-      <div className="flex border-b border-[hsl(var(--border))]">
+      <div className="flex items-center gap-3 bg-white border border-[#E2E8F0] p-2 rounded-2xl shadow-sm">
         <button
           onClick={() => setActiveTab('vitals')}
-          className={cn(
-            'px-5 py-3 text-sm font-semibold tracking-wide border-b-2 transition-all flex items-center gap-2',
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'vitals'
-              ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-              : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-          )}
+              ? 'bg-[#0891B2] text-white shadow-md'
+              : 'bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]'
+          }`}
         >
           <Activity className="w-4 h-4" /> Vitals & Measurements
         </button>
         <button
           onClick={() => setActiveTab('allergies')}
-          className={cn(
-            'px-5 py-3 text-sm font-semibold tracking-wide border-b-2 transition-all flex items-center gap-2',
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
             activeTab === 'allergies'
-              ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]'
-              : 'border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'
-          )}
+              ? 'bg-[#0891B2] text-white shadow-md'
+              : 'bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]'
+          }`}
         >
           <ShieldAlert className="w-4 h-4" /> Allergies
         </button>
       </div>
 
-      {/* Tab: Vitals */}
+      {/* Tab 1: Vitals History */}
       {activeTab === 'vitals' && (
-        <Card className="space-y-5">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border-muted))] pb-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#F1F5F9] pb-4 gap-4">
             <div>
-              <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">Logged Vitals History</h2>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">Track your blood pressure, temperature, weight, and general measurements.</p>
+              <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Logged Vitals History</h2>
+              <p className="text-xs text-[#475569]">Track your blood pressure, temperature, weight, and general measurements.</p>
             </div>
-            <Button onClick={() => setVitalsModalOpen(true)} className="text-xs flex items-center gap-1" id="log-vitals-btn">
-              <Plus className="w-3.5 h-3.5" /> Log Vitals
-            </Button>
+            <button
+              onClick={() => setVitalsModalOpen(true)}
+              className="px-5 py-2.5 rounded-xl bg-[#0891B2] text-white text-xs font-bold hover:bg-[#0F766E] shadow-sm inline-flex items-center gap-2 shrink-0"
+              id="log-vitals-btn"
+            >
+              <Plus className="w-4 h-4" /> + Log Vitals
+            </button>
           </div>
 
           {initialVitals.length === 0 ? (
-            <div className="text-center py-16">
-              <Activity className="w-10 h-10 text-[hsl(var(--muted-foreground))]/30 mx-auto mb-3" />
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">No vitals on record yet. Log your first measurement above.</p>
+            <div className="text-center py-16 space-y-3">
+              <Activity className="w-12 h-12 text-[#94A3B8] mx-auto opacity-50" />
+              <p className="text-xs text-[#475569]">No vitals on record yet. Log your first measurement above.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="data-table text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-[#E2E8F0]">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Blood Pressure</th>
-                    <th>Heart Rate</th>
-                    <th>Temp</th>
-                    <th>Weight</th>
-                    <th>Height</th>
-                    <th>BMI</th>
-                    <th>Pain Scale</th>
-                    <th>Notes</th>
+                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#0B2A55] text-xs font-bold uppercase tracking-wider">
+                    <th className="px-5 py-4">Date & Time</th>
+                    <th className="px-5 py-4">Blood Pressure</th>
+                    <th className="px-5 py-4">Heart Rate</th>
+                    <th className="px-5 py-4">Temp</th>
+                    <th className="px-5 py-4">Weight</th>
+                    <th className="px-5 py-4">Height</th>
+                    <th className="px-5 py-4">BMI</th>
+                    <th className="px-5 py-4">Pain Scale</th>
+                    <th className="px-5 py-4">Notes</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#F1F5F9] text-xs">
                   {initialVitals.map((v) => (
-                    <tr key={v.id}>
-                      <td className="font-medium whitespace-nowrap">{formatDate(v.recorded_at, 'MMM d, yyyy h:mm a')}</td>
-                      <td className="whitespace-nowrap">
+                    <tr key={v.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="px-5 py-4 font-bold text-[#0F172A] whitespace-nowrap">
+                        {formatDate(v.recorded_at, 'MMM d, yyyy h:mm a')}
+                      </td>
+                      <td className="px-5 py-4 whitespace-nowrap font-mono font-semibold text-[#0891B2]">
                         {v.systolic_bp && v.diastolic_bp ? `${v.systolic_bp}/${v.diastolic_bp} mmHg` : '—'}
                       </td>
-                      <td>{v.heart_rate ? `${v.heart_rate} bpm` : '—'}</td>
-                      <td>{v.temperature_f ? `${v.temperature_f} °F` : '—'}</td>
-                      <td>{v.weight_lbs ? `${v.weight_lbs} lbs` : '—'}</td>
-                      <td>{v.height_in ? `${v.height_in} in` : '—'}</td>
-                      <td className="font-semibold text-[hsl(var(--primary))]">{v.bmi ? v.bmi : '—'}</td>
-                      <td>
+                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                        {v.heart_rate ? `${v.heart_rate} bpm` : '—'}
+                      </td>
+                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                        {v.temperature_f ? `${v.temperature_f} °F` : '—'}
+                      </td>
+                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                        {v.weight_lbs ? `${v.weight_lbs} lbs` : '—'}
+                      </td>
+                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                        {v.height_in ? `${v.height_in} in` : '—'}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-[#0891B2]">
+                        {v.bmi ? v.bmi : '—'}
+                      </td>
+                      <td className="px-5 py-4">
                         {v.pain_scale !== null ? (
                           <span className={cn(
-                            'badge text-[10px]',
-                            v.pain_scale >= 7 ? 'bg-red-500/10 text-red-400' :
-                            v.pain_scale >= 4 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+                            'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase border',
+                            v.pain_scale >= 7 ? 'bg-red-500/10 text-red-600 border-red-500/20' :
+                            v.pain_scale >= 4 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                           )}>
                             {v.pain_scale}/10
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="max-w-[200px] truncate" title={v.notes}>{v.notes || '—'}</td>
+                      <td className="px-5 py-4 max-w-[200px] truncate text-[#475569]" title={v.notes}>
+                        {v.notes || '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </Card>
+        </div>
       )}
 
-      {/* Tab: Allergies */}
+      {/* Tab 2: Allergies */}
       {activeTab === 'allergies' && (
-        <Card className="space-y-5">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border-muted))] pb-4">
+        <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#F1F5F9] pb-4 gap-4">
             <div>
-              <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">Active Allergies</h2>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">View and report allergies and sensitivities to inform clinical staff.</p>
+              <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Active Allergies</h2>
+              <p className="text-xs text-[#475569]">View and report allergies and sensitivities to inform clinical staff.</p>
             </div>
-            <Button onClick={() => setAllergiesModalOpen(true)} className="text-xs flex items-center gap-1" id="add-allergy-btn">
-              <Plus className="w-3.5 h-3.5" /> Report Allergy
-            </Button>
+            <button
+              onClick={() => setAllergiesModalOpen(true)}
+              className="px-5 py-2.5 rounded-xl bg-[#0891B2] text-white text-xs font-bold hover:bg-[#0F766E] shadow-sm inline-flex items-center gap-2 shrink-0"
+              id="add-allergy-btn"
+            >
+              <Plus className="w-4 h-4" /> + Report Allergy
+            </button>
           </div>
 
           {initialAllergies.length === 0 ? (
-            <div className="text-center py-16">
-              <ShieldAlert className="w-10 h-10 text-[hsl(var(--muted-foreground))]/30 mx-auto mb-3" />
-              <p className="text-sm text-[hsl(var(--muted-foreground))]">No allergies reported. Report any allergy or reaction above.</p>
+            <div className="text-center py-16 space-y-3">
+              <ShieldAlert className="w-12 h-12 text-[#94A3B8] mx-auto opacity-50" />
+              <p className="text-xs text-[#475569]">No allergies reported. Report any allergy or reaction above.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="data-table text-xs">
+            <div className="overflow-x-auto rounded-2xl border border-[#E2E8F0]">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr>
-                    <th>Allergen</th>
-                    <th>Severity</th>
-                    <th>Reaction</th>
-                    <th>Onset Date</th>
-                    <th>Status</th>
+                  <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#0B2A55] text-xs font-bold uppercase tracking-wider">
+                    <th className="px-5 py-4">Allergen</th>
+                    <th className="px-5 py-4">Severity</th>
+                    <th className="px-5 py-4">Reaction</th>
+                    <th className="px-5 py-4">Onset Date</th>
+                    <th className="px-5 py-4">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#F1F5F9] text-xs">
                   {initialAllergies.map((a) => (
-                    <tr key={a.id}>
-                      <td className="font-semibold text-[hsl(var(--foreground))]">{a.allergen}</td>
-                      <td>
-                        <span className={cn('badge text-[10px] border', SEVERITY_BADGES[a.severity as keyof typeof SEVERITY_BADGES])}>
+                    <tr key={a.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="px-5 py-4 font-bold text-[#0B2A55]">{a.allergen}</td>
+                      <td className="px-5 py-4">
+                        <span className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold uppercase border', SEVERITY_BADGES[a.severity as keyof typeof SEVERITY_BADGES])}>
                           {a.severity.replace('_', ' ')}
                         </span>
                       </td>
-                      <td>{a.reaction || '—'}</td>
-                      <td>{a.onset_date ? formatDate(a.onset_date, 'MMMM d, yyyy') : '—'}</td>
-                      <td>
-                        <span className={cn('badge text-[10px]', a.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400')}>
+                      <td className="px-5 py-4 text-[#475569]">{a.reaction || '—'}</td>
+                      <td className="px-5 py-4 text-[#475569]">{a.onset_date ? formatDate(a.onset_date, 'MMMM d, yyyy') : '—'}</td>
+                      <td className="px-5 py-4">
+                        <span className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold uppercase border', a.is_active ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-500/10 text-slate-600 border-slate-500/20')}>
                           {a.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -285,207 +294,204 @@ export function PortalRecordsClient({ patientId, initialVitals, initialAllergies
               </table>
             </div>
           )}
-        </Card>
+        </div>
       )}
 
-      {/* ─── Log Vitals Modal ────────────────────────────────────────── */}
+      {/* Log Vitals Modal */}
       {vitalsModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in">
-            <div className="px-6 py-4 border-b border-[hsl(var(--border-muted))] flex items-center justify-between bg-[hsl(var(--primary))]/3">
+          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl space-y-6 p-6 sm:p-8 animate-slide-up">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
               <div className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[hsl(var(--primary))]" />
-                <h3 className="font-display font-semibold text-[hsl(var(--foreground))] text-sm sm:text-base">Record My Vitals</h3>
+                <Activity className="w-5 h-5 text-[#0891B2]" />
+                <h3 className="font-cambria text-lg font-bold text-[#0B2A55]">Record My Vitals</h3>
               </div>
-              <button 
-                onClick={() => setVitalsModalOpen(false)}
-                className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-hover))] transition-colors"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={() => setVitalsModalOpen(false)} className="p-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A]">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleVitalsSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Systolic BP (mmHg)"
-                  placeholder="e.g. 120"
-                  type="number"
-                  className="text-xs"
-                  value={vitalsForm.systolicBp}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, systolicBp: e.target.value }))}
-                />
-                <Input
-                  label="Diastolic BP (mmHg)"
-                  placeholder="e.g. 80"
-                  type="number"
-                  className="text-xs"
-                  value={vitalsForm.diastolicBp}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, diastolicBp: e.target.value }))}
+            <form onSubmit={handleVitalsSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-[#0F172A]">Systolic BP (mmHg)</label>
+                  <input
+                    type="number"
+                    placeholder="120"
+                    value={vitalsForm.systolicBp}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, systolicBp: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-[#0F172A]">Diastolic BP (mmHg)</label>
+                  <input
+                    type="number"
+                    placeholder="80"
+                    value={vitalsForm.diastolicBp}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, diastolicBp: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-[#0F172A]">Heart Rate (bpm)</label>
+                  <input
+                    type="number"
+                    placeholder="72"
+                    value={vitalsForm.heartRate}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, heartRate: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-[#0F172A]">Temperature (°F)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="98.6"
+                    value={vitalsForm.temperatureF}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, temperatureF: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-[#0F172A]">Weight (lbs)</label>
+                  <input
+                    type="number"
+                    placeholder="150"
+                    value={vitalsForm.weightLbs}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, weightLbs: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-[#0F172A]">Height (inches)</label>
+                  <input
+                    type="number"
+                    placeholder="68"
+                    value={vitalsForm.heightIn}
+                    onChange={(e) => setVitalsForm(f => ({ ...f, heightIn: e.target.value }))}
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-[#0F172A]">Notes / Context</label>
+                <textarea
+                  rows={2}
+                  placeholder="Taken after morning workout..."
+                  value={vitalsForm.notes}
+                  onChange={(e) => setVitalsForm(f => ({ ...f, notes: e.target.value }))}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  label="Heart Rate (bpm)"
-                  placeholder="e.g. 72"
-                  type="number"
-                  className="text-xs"
-                  value={vitalsForm.heartRate}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, heartRate: e.target.value }))}
-                />
-                <Input
-                  label="Resp Rate (breaths/m)"
-                  placeholder="e.g. 16"
-                  type="number"
-                  className="text-xs"
-                  value={vitalsForm.respiratoryRate}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, respiratoryRate: e.target.value }))}
-                />
-                <Input
-                  label="Temperature (°F)"
-                  placeholder="e.g. 98.6"
-                  type="number"
-                  step="0.1"
-                  className="text-xs"
-                  value={vitalsForm.temperatureF}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, temperatureF: e.target.value }))}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="Weight (lbs)"
-                  placeholder="e.g. 165"
-                  type="number"
-                  step="0.1"
-                  className="text-xs"
-                  value={vitalsForm.weightLbs}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, weightLbs: e.target.value }))}
-                />
-                <Input
-                  label="Height (in)"
-                  placeholder="e.g. 70"
-                  type="number"
-                  step="0.5"
-                  className="text-xs"
-                  value={vitalsForm.heightIn}
-                  onChange={(e) => setVitalsForm((v) => ({ ...v, heightIn: e.target.value }))}
-                />
-              </div>
-
-              {vitalsForm.weightLbs && vitalsForm.heightIn && (
-                <div className="bg-[hsl(var(--primary))]/5 border border-[hsl(var(--primary))]/10 rounded-lg px-4 py-2 flex justify-between items-center text-xs">
-                  <span className="font-medium text-[hsl(var(--muted-foreground))]">Calculated BMI:</span>
-                  <span className="font-bold text-[hsl(var(--primary))]">
-                    {calculateBmi(vitalsForm.weightLbs, vitalsForm.heightIn)}
-                  </span>
+              {vitalsError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 text-xs font-semibold">
+                  {vitalsError}
                 </div>
               )}
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Pain Scale (0-10)</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="1"
-                    className="flex-1 accent-[hsl(var(--primary))]"
-                    value={vitalsForm.painScale}
-                    onChange={(e) => setVitalsForm((v) => ({ ...v, painScale: e.target.value }))}
-                  />
-                  <span className="text-xs font-bold w-8 text-center text-[hsl(var(--foreground))]">{vitalsForm.painScale}/10</span>
-                </div>
-              </div>
-
-              <Textarea
-                label="Self-reported notes (symptoms, concerns)"
-                placeholder="Optional notes to include..."
-                className="text-xs"
-                rows={2}
-                value={vitalsForm.notes}
-                onChange={(e) => setVitalsForm((v) => ({ ...v, notes: e.target.value }))}
-              />
-
-              {vitalsError && <div className="alert-error text-xs">{vitalsError}</div>}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" type="button" onClick={() => setVitalsModalOpen(false)}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#F1F5F9]">
+                <button
+                  type="button"
+                  onClick={() => setVitalsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#E2E8F0] text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC]"
+                >
                   Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit" loading={vitalsPending} id="submit-vitals-btn">
-                  Log Vitals
-                </Button>
+                </button>
+                <button
+                  type="submit"
+                  disabled={vitalsPending}
+                  className="px-6 py-2 rounded-xl bg-[#0891B2] text-white text-xs font-bold hover:bg-[#0F766E] shadow-sm disabled:opacity-50"
+                >
+                  {vitalsPending ? 'Saving…' : 'Save Vitals'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ─── Add Allergy Modal ────────────────────────────────────────── */}
+      {/* Report Allergy Modal */}
       {allergiesModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[hsl(var(--surface))] border border-[hsl(var(--border))] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-in">
-            <div className="px-6 py-4 border-b border-[hsl(var(--border-muted))] flex items-center justify-between bg-[hsl(var(--primary))]/3">
+          <div className="bg-white border border-[#E2E8F0] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl space-y-6 p-6 sm:p-8 animate-slide-up">
+            <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-[hsl(var(--primary))]" />
-                <h3 className="font-display font-semibold text-[hsl(var(--foreground))] text-sm sm:text-base">Report Allergy</h3>
+                <ShieldAlert className="w-5 h-5 text-[#0891B2]" />
+                <h3 className="font-cambria text-lg font-bold text-[#0B2A55]">Report Allergy</h3>
               </div>
-              <button 
-                onClick={() => setAllergiesModalOpen(false)}
-                className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--surface-hover))] transition-colors"
-                aria-label="Close modal"
-              >
-                <X className="w-4 h-4" />
+              <button onClick={() => setAllergiesModalOpen(false)} className="p-1 rounded-xl text-[#94A3B8] hover:text-[#0F172A]">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleAllergiesSubmit} className="p-6 space-y-4">
-              <Input
-                label="Allergen *"
-                placeholder="e.g. Penicillin, Peanuts"
-                required
-                className="text-xs"
-                value={allergiesForm.allergen}
-                onChange={(e) => setAllergiesForm((a) => ({ ...a, allergen: e.target.value }))}
-              />
-
-              <Input
-                label="Reaction Description"
-                placeholder="e.g. hives, swelling, shortness of breath"
-                className="text-xs"
-                value={allergiesForm.reaction}
-                onChange={(e) => setAllergiesForm((a) => ({ ...a, reaction: e.target.value }))}
-              />
-
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  label="Severity *"
-                  options={SEVERITY_OPTIONS}
-                  className="text-xs"
-                  value={allergiesForm.severity}
-                  onChange={(e) => setAllergiesForm((a) => ({ ...a, severity: e.target.value as any }))}
-                />
-                <Input
-                  label="Onset Date (optional)"
-                  type="date"
-                  className="text-xs"
-                  value={allergiesForm.onsetDate}
-                  onChange={(e) => setAllergiesForm((a) => ({ ...a, onsetDate: e.target.value }))}
+            <form onSubmit={handleAllergiesSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-[#0F172A]">Allergen Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Penicillin, Peanuts"
+                  required
+                  value={allergiesForm.allergen}
+                  onChange={(e) => setAllergiesForm(f => ({ ...f, allergen: e.target.value }))}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
                 />
               </div>
 
-              {allergiesError && <div className="alert-error text-xs">{allergiesError}</div>}
+              <div>
+                <label className="font-bold text-[#0F172A]">Severity *</label>
+                <select
+                  value={allergiesForm.severity}
+                  onChange={(e) => setAllergiesForm(f => ({ ...f, severity: e.target.value as any }))}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                >
+                  {SEVERITY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" type="button" onClick={() => setAllergiesModalOpen(false)}>
+              <div>
+                <label className="font-bold text-[#0F172A]">Reaction Description</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Hives, difficulty breathing"
+                  value={allergiesForm.reaction}
+                  onChange={(e) => setAllergiesForm(f => ({ ...f, reaction: e.target.value }))}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] outline-none focus:ring-2 focus:ring-[#0891B2]"
+                />
+              </div>
+
+              {allergiesError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 text-xs font-semibold">
+                  {allergiesError}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-[#F1F5F9]">
+                <button
+                  type="button"
+                  onClick={() => setAllergiesModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-[#E2E8F0] text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC]"
+                >
                   Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit" loading={allergiesPending} id="submit-allergy-btn">
-                  Report Allergy
-                </Button>
+                </button>
+                <button
+                  type="submit"
+                  disabled={allergiesPending}
+                  className="px-6 py-2 rounded-xl bg-[#0891B2] text-white text-xs font-bold hover:bg-[#0F766E] shadow-sm disabled:opacity-50"
+                >
+                  {allergiesPending ? 'Saving…' : 'Report Allergy'}
+                </button>
               </div>
             </form>
           </div>

@@ -2,19 +2,21 @@ import type { Metadata } from 'next';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { formatDate, formatDateTime, LAB_FLAG_COLORS } from '@/lib/utils';
+import { formatDate, LAB_FLAG_COLORS } from '@/lib/utils';
 import { 
   Calendar, FlaskConical, Pill, MessageSquare, FileText, 
   ChevronRight, HeartPulse, CheckCircle2, UserCheck, 
   Stethoscope, Phone, Clock, MapPin, ArrowRight, Activity,
-  User, Mail, CreditCard, CalendarDays, ShieldCheck
+  User, Mail, CreditCard, CalendarDays, ShieldCheck, Sparkles,
+  Award, Lock, ChevronDown, Check, Video
 } from 'lucide-react';
 import { Card } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import type { LabResultFlag } from '@/lib/types/database';
 import { ChangePasswordForm } from './components/ChangePasswordForm';
+import Image from 'next/image';
 
-export const metadata: Metadata = { title: 'My Health Portal' };
+export const metadata: Metadata = { title: 'My Health Portal | MediSynx EHR' };
 
 interface PortalPageProps {
   searchParams?: { [key: string]: string | string[] | undefined };
@@ -25,9 +27,6 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Admin client — used to bypass RLS for patient data reads
-  // (patient records created via public booking may have profile_id linked
-  // after the row was created, causing is_own_patient_record() to return false)
   const adminSupabase = createAdminClient();
 
   // Get user profile
@@ -44,11 +43,10 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
     .eq('profile_id', user.id)
     .single();
 
+  /* ── UNLINKED / NEW PATIENT ONBOARDING DASHBOARD ────────────────── */
   if (!patient) {
-    // Guard: if profile is missing, force re-login
     if (!profile) redirect('/login');
 
-    // Fetch active doctors using admin client
     const { data: doctors } = await adminSupabase
       .from('profiles')
       .select('*')
@@ -59,191 +57,207 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
     const isSuccess = searchParams?.booking_success === 'true';
 
     return (
-      <div className="space-y-6 max-w-5xl mx-auto py-2">
+      <div className="space-y-8 max-w-6xl mx-auto py-4 animate-fade-in">
         {isSuccess && (
-          <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium animate-fade-in shadow-md mb-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+          <div className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[#16A34A]/10 border border-[#16A34A]/30 text-[#16A34A] text-sm font-medium shadow-sm animate-slide-up">
+            <CheckCircle2 className="w-6 h-6 text-[#16A34A] shrink-0" />
             <div>
-              <p className="font-semibold text-emerald-400">Appointment Confirmation</p>
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">Your onboarding consultation has been booked and confirmed successfully! You can view details in your schedule below.</p>
+              <p className="font-bold text-[#16A34A]">Appointment Confirmed!</p>
+              <p className="text-xs text-[#475569] mt-0.5">
+                Your consultation has been booked successfully. Our care team will review your chart details shortly.
+              </p>
             </div>
           </div>
         )}
-        {/* Welcome Header */}
-        <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20 p-6 rounded-2xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
-                Welcome, {profile?.first_name} {profile?.last_name}
+
+        {/* Welcome Hero Banner — Navy to Cyan Gradient */}
+        <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-[#0891B2]/30">
+          <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-[#22D3EE] backdrop-blur-sm">
+                <Sparkles className="w-3.5 h-3.5" /> Patient Portal Account Active
+              </span>
+              <h1 className="font-cambria text-3xl sm:text-4xl font-bold leading-tight">
+                Welcome, {profile?.first_name} {profile?.last_name}!
               </h1>
-              <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                Your portal registration is active. Complete your clinical onboarding checklist to activate your medical chart.
+              <p className="text-sm text-slate-200 leading-relaxed font-normal">
+                Your portal account is active. Complete your clinical onboarding checklist below to initialize your medical record and access lab results, appointments, and care team messaging.
               </p>
             </div>
-            <HeartPulse className="w-10 h-10 text-blue-400 opacity-60 shrink-0" />
+
+            <Link
+              href="/#booking-section"
+              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md shrink-0"
+            >
+              Book Consult <ArrowRight className="w-4 h-4 text-[#0891B2]" />
+            </Link>
           </div>
         </div>
 
-        {/* Core Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Onboarding checklist card */}
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-[hsl(var(--border-muted))] pb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                <Activity className="w-4.5 h-4.5" />
+        {/* Core Onboarding & Center Info Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Onboarding Checklist Card */}
+          <div className="lg:col-span-7 bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-[#F1F5F9] pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center text-[#0891B2] shrink-0">
+                <Activity className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">Onboarding Progress</h2>
-                <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Steps to initialize your medical record</p>
+                <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Onboarding Checklist</h2>
+                <p className="text-xs text-[#475569]">Steps required to initialize your clinical chart</p>
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Step 1 */}
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mt-0.5 border border-emerald-500/25 shrink-0">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9]">
+                <div className="w-6 h-6 rounded-full bg-[#16A34A]/10 text-[#16A34A] flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                  ✓
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Account Registered</p>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Portal credentials created successfully.</p>
+                  <p className="text-xs font-bold text-[#0B2A55]">1. Account Registration Complete</p>
+                  <p className="text-xs text-[#475569] mt-0.5">Portal credentials and security profile created.</p>
                 </div>
               </div>
 
               {/* Step 2 */}
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mt-0.5 border border-blue-500/25 shrink-0">
-                  <Calendar className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/30">
+                <div className="w-6 h-6 rounded-full bg-[#0891B2] text-white flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                  2
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Schedule Onboarding Consultation</p>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))] mb-2">Book your initial visit to meet your doctor and set up your clinical chart.</p>
+                <div className="flex-1 space-y-2">
+                  <p className="text-xs font-bold text-[#0B2A55]">2. Schedule First Consultation</p>
+                  <p className="text-xs text-[#475569]">Book an initial consultation to meet your primary care doctor.</p>
                   <Link
-                    href="/portal/appointments"
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-xs font-semibold hover:bg-[hsl(220,55%,28%)] transition-all shadow-sm cursor-pointer"
+                    href="/#booking-section"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0891B2] text-white text-xs font-bold hover:bg-[#0F766E] transition-all shadow-sm"
                   >
-                    Schedule Now <ArrowRight className="w-3 h-3" />
+                    Select Doctor & Schedule <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>
 
               {/* Step 3 */}
-              <div className="flex items-start gap-3 opacity-55">
-                <div className="w-5 h-5 rounded-full bg-gray-500/10 text-gray-400 flex items-center justify-center mt-0.5 border border-gray-500/20 shrink-0">
-                  <UserCheck className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] opacity-75">
+                <div className="w-6 h-6 rounded-full bg-[#94A3B8]/20 text-[#94A3B8] flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                  3
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Clinical Vitals & Intake</p>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Meet clinical staff to record histories, allergies, and vitals.</p>
+                  <p className="text-xs font-bold text-[#0B2A55]">3. Clinical Vitals Intake</p>
+                  <p className="text-xs text-[#475569] mt-0.5">Vitals and medical history recorded during consultation.</p>
                 </div>
               </div>
 
               {/* Step 4 */}
-              <div className="flex items-start gap-3 opacity-55">
-                <div className="w-5 h-5 rounded-full bg-gray-500/10 text-gray-400 flex items-center justify-center mt-0.5 border border-gray-500/20 shrink-0">
-                  <HeartPulse className="w-3.5 h-3.5" />
+              <div className="flex items-start gap-4 p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] opacity-75">
+                <div className="w-6 h-6 rounded-full bg-[#94A3B8]/20 text-[#94A3B8] flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                  4
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[hsl(var(--foreground))]">Portal Fully Activated</p>
-                  <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Access prescriptions, check labs, and message care team.</p>
+                  <p className="text-xs font-bold text-[#0B2A55]">4. Full Records & Prescriptions Access</p>
+                  <p className="text-xs text-[#475569] mt-0.5">Unlock lab diagnostics, e-prescriptions, and direct messaging.</p>
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
 
-          {/* Contact and clinic info card */}
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center gap-2.5 border-b border-[hsl(var(--border-muted))] pb-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0">
-                <Stethoscope className="w-4.5 h-4.5" />
+          {/* Clinic Contact Info Card */}
+          <div className="lg:col-span-5 bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b border-[#F1F5F9] pb-4">
+              <div className="w-10 h-10 rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center text-[#0891B2] shrink-0">
+                <Stethoscope className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-[hsl(var(--foreground))]">MediCore Health Center</h2>
-                <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Clinic Information & Hours</p>
+                <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">MediSynx Health Center</h2>
+                <p className="text-xs text-[#475569]">Clinic Contact & Hours</p>
               </div>
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="flex items-start gap-3">
-                <MapPin className="w-4.5 h-4.5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9]">
+                <MapPin className="w-4 h-4 text-[#0891B2] shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-[hsl(var(--foreground))]">Clinic Address</p>
-                  <p className="text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
-                    100 Medical Center Parkway, Suite 500<br />
-                    Boston, MA 02118
+                  <p className="font-bold text-[#0B2A55]">Clinical Location</p>
+                  <p className="text-[#475569] mt-0.5 leading-relaxed">
+                    100 MediSynx Plaza, Suite 400<br />
+                    New York, NY 10001
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Phone className="w-4.5 h-4.5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9]">
+                <Phone className="w-4 h-4 text-[#0891B2] shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-[hsl(var(--foreground))]">Phone & Support</p>
-                  <p className="text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
-                    Main Office: (555) 019-2834<br />
-                    Emergency: Call 911 (24/7 Help Desk)
+                  <p className="font-bold text-[#0B2A55]">Phone & Support</p>
+                  <p className="text-[#475569] mt-0.5 leading-relaxed">
+                    Main Office: +1 (800) 555-SYNX<br />
+                    24/7 Patient Helpdesk: Available Online
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <Clock className="w-4.5 h-4.5 text-blue-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9]">
+                <Clock className="w-4 h-4 text-[#0891B2] shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-[hsl(var(--foreground))]">Hours of Operation</p>
-                  <p className="text-[hsl(var(--muted-foreground))] mt-1 leading-relaxed">
+                  <p className="font-bold text-[#0B2A55]">Operating Hours</p>
+                  <p className="text-[#475569] mt-0.5 leading-relaxed">
                     Mon – Fri: 8:00 AM – 6:00 PM<br />
-                    Saturday: 9:00 AM – 1:00 PM (Urgent Care only)<br />
+                    Saturday: 9:00 AM – 2:00 PM<br />
                     Sunday: Closed
                   </p>
                 </div>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
 
-        {/* Care Team Section */}
-        <section className="space-y-4 pt-2">
-          <div className="flex items-center justify-between border-b border-[hsl(var(--border-muted))] pb-2.5">
+        {/* Clinical Team Showcase */}
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
             <div>
-              <h3 className="text-sm font-bold text-[hsl(var(--foreground))]">Meet Our Clinical Team</h3>
-              <p className="text-[11px] text-[hsl(var(--muted-foreground))] mt-0.5">Specialists currently accepting new patient onboarding</p>
+              <h2 className="font-cambria text-xl font-bold text-[#0B2A55]">Our Board-Certified Specialists</h2>
+              <p className="text-xs text-[#475569] mt-0.5">Doctors available for outpatient consultations</p>
             </div>
           </div>
-          {doctors && doctors.length === 0 ? (
-            <div className="text-center py-8 border border-dashed border-[hsl(var(--border))] rounded-xl">
-              <p className="text-xs text-[hsl(var(--muted-foreground))]">No doctors listed at the moment.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {doctors?.map((doc: any) => (
-                <div key={doc.id} className="card p-4 flex items-center gap-3.5 bg-[hsl(var(--surface))] border border-[hsl(var(--border))]/40 rounded-2xl shadow-sm">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {doctors?.map((doc: any) => (
+              <div key={doc.id} className="bg-white border border-[#E2E8F0] rounded-2xl p-5 shadow-sm hover:border-[#14B8A6] transition-all space-y-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center shrink-0">
                     {doc.avatar_url ? (
                       <img src={doc.avatar_url} alt={`Dr. ${doc.last_name}`} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-xs font-semibold text-blue-400">{doc.first_name[0]}{doc.last_name[0]}</span>
+                      <span className="font-cambria text-sm font-bold text-[#0891B2]">{doc.first_name[0]}{doc.last_name[0]}</span>
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[hsl(var(--foreground))]">Dr. {doc.first_name} {doc.last_name}</p>
-                    <p className="text-[10px] text-[hsl(var(--muted-foreground))] mt-0.5">{doc.specialty || 'General Practice'}</p>
-                    <p className="text-[10px] text-emerald-400 mt-1 flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" /> Accepting Patients
-                    </p>
+                    <p className="font-cambria font-bold text-sm text-[#0B2A55]">Dr. {doc.first_name} {doc.last_name}</p>
+                    <p className="text-xs font-semibold text-[#0891B2]">{doc.specialty || 'General Practitioner'}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                <div className="pt-2 border-t border-[#F1F5F9] flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#16A34A] flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" /> Available
+                  </span>
+                  <Link
+                    href="/#booking-section"
+                    className="text-xs font-bold text-[#0891B2] hover:underline flex items-center gap-1"
+                  >
+                    Book Visit <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Use adminSupabase for all patient clinical data — the user-scoped client
-  // relies on is_own_patient_record() RLS which silently returns [] when
-  // profile_id is not yet linked on the patients row.
-  // patient.id was already verified via the profile_id lookup above.
+  /* ── LINKED PATIENT CLINICAL DASHBOARD ───────────────────────────── */
   const [
     { data: upcomingAppts },
     { data: recentNotes },
@@ -265,231 +279,231 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
   const isSuccess = searchParams?.booking_success === 'true';
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
       {isSuccess && (
-        <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium animate-fade-in shadow-md">
-          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 animate-pulse" />
+        <div className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[#16A34A]/10 border border-[#16A34A]/30 text-[#16A34A] text-sm font-medium shadow-sm animate-slide-up">
+          <CheckCircle2 className="w-6 h-6 text-[#16A34A] shrink-0" />
           <div>
-            <p className="font-semibold text-emerald-400">Appointment Confirmation</p>
-            <p className="text-xs text-[hsl(var(--muted-foreground))]">Your onboarding consultation has been booked and confirmed successfully! You can view details in your schedule below.</p>
+            <p className="font-bold text-[#16A34A]">Appointment Confirmed!</p>
+            <p className="text-xs text-[#475569] mt-0.5">
+              Your consultation has been booked and confirmed successfully! Check details in your upcoming appointments schedule.
+            </p>
           </div>
         </div>
       )}
-      {/* Welcome header */}
-      <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
-              Welcome, {patient.first_name}
+
+      {/* Patient Hero Banner — Navy to Cyan Gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-[#0891B2]/30">
+        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-[#22D3EE] backdrop-blur-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#22D3EE]" /> Verified Patient Record
+            </span>
+            <h1 className="font-cambria text-3xl sm:text-4xl font-bold leading-tight">
+              Welcome back, {patient.first_name} {patient.last_name}!
             </h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-              {patient.mrn} · DOB: {formatDate(patient.date_of_birth)}
-            </p>
+            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-200">
+              <span className="bg-white/10 px-3 py-1 rounded-lg border border-white/20 font-mono font-bold">
+                MRN: {patient.mrn ?? '—'}
+              </span>
+              <span>DOB: {formatDate(patient.date_of_birth)}</span>
+              <span>Gender: {patient.gender ? patient.gender.toUpperCase() : 'N/A'}</span>
+            </div>
           </div>
-          <HeartPulse className="w-10 h-10 text-blue-400 opacity-50" />
+
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              href="/#booking-section"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md"
+            >
+              <Calendar className="w-4 h-4 text-[#0891B2]" /> Book Appointment
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Quick nav tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Quick Navigation Tiles Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { href: '/portal/appointments', label: 'Appointments', icon: Calendar, count: upcomingAppts?.length ?? 0, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
-          { href: '/portal/labs', label: 'Lab Results', icon: FlaskConical, count: recentLabs?.filter((l: any) => l.flag !== 'normal').length ?? 0, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-          { href: '/portal/medications', label: 'Medications', icon: Pill, count: activeMeds?.length ?? 0, color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/20' },
-          { href: '/portal/messages', label: 'Messages', icon: MessageSquare, count: unreadMessages?.length ?? 0, color: 'text-purple-400', bg: 'bg-purple-500/10 border-purple-500/20' },
+          { href: '/portal/appointments', label: 'Appointments', icon: Calendar, count: upcomingAppts?.length ?? 0, color: 'text-[#0891B2]', bg: 'bg-white border-[#E2E8F0] hover:border-[#0891B2]' },
+          { href: '/portal/labs', label: 'Lab Results', icon: FlaskConical, count: recentLabs?.filter((l: any) => l.flag !== 'normal').length ?? 0, color: 'text-[#4CAF50]', bg: 'bg-white border-[#E2E8F0] hover:border-[#4CAF50]' },
+          { href: '/portal/medications', label: 'Medications', icon: Pill, count: activeMeds?.length ?? 0, color: 'text-[#14B8A6]', bg: 'bg-white border-[#E2E8F0] hover:border-[#14B8A6]' },
+          { href: '/portal/messages', label: 'Messages', icon: MessageSquare, count: unreadMessages?.length ?? 0, color: 'text-[#0B2A55]', bg: 'bg-white border-[#E2E8F0] hover:border-[#0B2A55]' },
         ].map(({ href, label, icon: Icon, count, color, bg }) => (
-          <Link key={href} href={href} id={`portal-nav-${label.toLowerCase().replace(' ','-')}`} className={`card-hover border ${bg} flex flex-col items-center gap-2 py-4 text-center`}>
-            <Icon className={cn('w-6 h-6', color)} />
-            <p className="text-xs font-medium text-[hsl(var(--foreground))]">{label}</p>
-            {count > 0 && <span className={cn('badge text-xs', bg, color)}>{count}</span>}
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              'p-5 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md flex flex-col justify-between group',
+              bg
+            )}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Icon className={cn('w-5 h-5', color)} />
+              </div>
+              {count > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#0891B2]/10 text-[#0891B2]">
+                  {count}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="font-cambria font-bold text-sm text-[#0B2A55]">{label}</p>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">Explore {label.toLowerCase()}</p>
+            </div>
           </Link>
         ))}
       </div>
 
-      {/* ── My Profile Section ────────────────────────────────────────── */}
-      <section id="my-profile-section" className="space-y-4">
-        <div className="flex items-center gap-2.5 border-b border-[hsl(var(--border-muted))] pb-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
-            <User className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-[hsl(var(--foreground))]">My Profile</h2>
-            <p className="text-[11px] text-[hsl(var(--muted-foreground))]">Your personal data on file · Change your password</p>
-          </div>
-        </div>
+      {/* Main Grid: Schedule & Lab Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Patient data card */}
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-[hsl(var(--border-muted))] pb-3">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-xs font-semibold text-[hsl(var(--foreground))]">Personal Information</h3>
+        {/* Upcoming Appointments Card */}
+        <div className="bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center text-[#0891B2]">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Upcoming Appointments</h2>
+                <p className="text-xs text-[#475569]">Scheduled outpatient & telehealth visits</p>
+              </div>
             </div>
-
-            <dl className="space-y-3 text-xs">
-              {/* Full Name */}
-              <div className="flex items-start gap-3">
-                <User className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Full Name</dt>
-                  <dd className="font-semibold text-[hsl(var(--foreground))]">
-                    {patient.first_name} {patient.last_name}
-                  </dd>
-                </div>
-              </div>
-
-              {/* Date of Birth */}
-              <div className="flex items-start gap-3">
-                <CalendarDays className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Date of Birth</dt>
-                  <dd className="font-semibold text-[hsl(var(--foreground))]">
-                    {formatDate(patient.date_of_birth)}
-                  </dd>
-                </div>
-              </div>
-
-              {/* MRN */}
-              <div className="flex items-start gap-3">
-                <CreditCard className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Medical Record No.</dt>
-                  <dd className="font-mono font-semibold text-[hsl(var(--foreground))] tracking-wide">
-                    {patient.mrn ?? '—'}
-                  </dd>
-                </div>
-              </div>
-
-              {/* Email */}
-              <div className="flex items-start gap-3">
-                <Mail className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Email Address</dt>
-                  <dd className="font-semibold text-[hsl(var(--foreground))] break-all">
-                    {patient.email ?? '—'}
-                  </dd>
-                </div>
-              </div>
-
-              {/* Phone */}
-              <div className="flex items-start gap-3">
-                <Phone className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Phone Number</dt>
-                  <dd className="font-semibold text-[hsl(var(--foreground))]">
-                    {patient.phone ?? '—'}
-                  </dd>
-                </div>
-              </div>
-
-              {/* Last appointment */}
-              <div className="flex items-start gap-3">
-                <Calendar className="w-4 h-4 text-[hsl(var(--muted-foreground))] shrink-0 mt-0.5" />
-                <div>
-                  <dt className="text-[hsl(var(--muted-foreground))] mb-0.5">Last Appointment</dt>
-                  <dd className="font-semibold text-[hsl(var(--foreground))]">
-                    {upcomingAppts && upcomingAppts.length > 0
-                      ? formatDate(upcomingAppts[0].scheduled_at)
-                      : 'No upcoming appointments'}
-                  </dd>
-                </div>
-              </div>
-            </dl>
-          </Card>
-
-          {/* Change password card */}
-          <Card className="p-6 space-y-4">
-            <div className="flex items-center gap-2 border-b border-[hsl(var(--border-muted))] pb-3">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" />
-              <h3 className="text-xs font-semibold text-[hsl(var(--foreground))]">Change Password</h3>
-            </div>
-            <p className="text-[11px] text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Choose a strong password to keep your health data secure. Must be at least 8 characters.
-            </p>
-            <ChangePasswordForm />
-          </Card>
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming appointments */}
-        <Card>
-          <div className="section-header">
-            <h2 className="section-title">Upcoming Appointments</h2>
-            <Link href="/portal/appointments" className="text-xs text-blue-400 hover:text-blue-300">View all →</Link>
+            <Link href="/portal/appointments" className="text-xs font-bold text-[#0891B2] hover:underline flex items-center gap-1">
+              View All <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
+
           <div className="space-y-3">
             {upcomingAppts?.map((a: any) => (
-              <div key={a.id} className="flex items-center gap-4 py-2 border-b border-[hsl(var(--border-muted))] last:border-0">
-                <div className="text-center min-w-[52px] rounded-lg bg-blue-500/10 border border-blue-500/20 py-1.5">
-                  <p className="text-sm font-bold text-blue-300">{formatDate(a.scheduled_at, 'd')}</p>
-                  <p className="text-xs text-blue-400/70">{formatDate(a.scheduled_at, 'MMM')}</p>
+              <div key={a.id} className="flex items-center gap-4 p-4 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9] hover:border-[#0891B2] transition-all">
+                <div className="text-center min-w-[56px] rounded-xl bg-[#0891B2]/10 border border-[#0891B2]/20 py-2">
+                  <p className="text-base font-bold text-[#0891B2]">{formatDate(a.scheduled_at, 'd')}</p>
+                  <p className="text-[10px] font-bold text-[#0891B2] uppercase">{formatDate(a.scheduled_at, 'MMM')}</p>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{a.chief_complaint ?? 'Appointment'}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                    Dr. {(a.provider as any)?.last_name} · {formatDate(a.scheduled_at, 'h:mm a')}
+                  <p className="font-cambria font-bold text-sm text-[#0B2A55]">{a.chief_complaint ?? 'General Consultation'}</p>
+                  <p className="text-xs text-[#475569] mt-0.5">
+                    Dr. {(a.provider as any)?.first_name} {(a.provider as any)?.last_name} · {formatDate(a.scheduled_at, 'h:mm a')}
                   </p>
                 </div>
-                <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">{a.status}</span>
+                <span className="px-3 py-1 rounded-full bg-[#16A34A]/10 text-[#16A34A] text-xs font-bold border border-[#16A34A]/20 uppercase">
+                  {a.status}
+                </span>
               </div>
             ))}
             {!upcomingAppts?.length && (
-              <p className="text-sm text-[hsl(var(--muted-foreground))] py-4 text-center">No upcoming appointments</p>
+              <div className="text-center py-8 bg-[#F8FAFC] border border-dashed border-[#E2E8F0] rounded-2xl">
+                <p className="text-xs text-[#94A3B8]">No upcoming appointments scheduled</p>
+                <Link href="/#booking-section" className="text-xs font-bold text-[#0891B2] hover:underline mt-2 inline-block">
+                  + Book an appointment now
+                </Link>
+              </div>
             )}
           </div>
-        </Card>
+        </div>
 
-        {/* Recent lab results */}
-        <Card>
-          <div className="section-header">
-            <h2 className="section-title">Recent Lab Results</h2>
-            <Link href="/portal/labs" className="text-xs text-blue-400 hover:text-blue-300">View all →</Link>
+        {/* Recent Lab Results Card */}
+        <div className="bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#4CAF50]/10 border border-[#4CAF50]/20 flex items-center justify-center text-[#4CAF50]">
+                <FlaskConical className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Recent Lab Diagnostics</h2>
+                <p className="text-xs text-[#475569]">Clinical laboratory test results</p>
+              </div>
+            </div>
+            <Link href="/portal/labs" className="text-xs font-bold text-[#0891B2] hover:underline flex items-center gap-1">
+              View All <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-3">
             {recentLabs?.map((r: any) => (
-              <div key={r.id} className="flex items-center justify-between py-2 border-b border-[hsl(var(--border-muted))] last:border-0">
+              <div key={r.id} className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9]">
                 <div>
-                  <p className="text-sm font-medium">{r.component_name}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                  <p className="font-cambria font-bold text-sm text-[#0B2A55]">{r.component_name}</p>
+                  <p className="text-xs text-[#475569] mt-0.5">
                     {(r.lab_order as any)?.test_name} · {formatDate(r.resulted_at)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={cn('font-mono text-sm font-semibold', LAB_FLAG_COLORS[r.flag as LabResultFlag])}>{r.value} {r.unit}</p>
+                  <p className={cn('font-mono text-sm font-bold', LAB_FLAG_COLORS[r.flag as LabResultFlag])}>
+                    {r.value} {r.unit}
+                  </p>
                   {r.flag !== 'normal' && (
-                    <span className="badge bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs">{r.flag.replace(/_/g, ' ')}</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-bold uppercase mt-1 inline-block">
+                      {r.flag.replace(/_/g, ' ')}
+                    </span>
                   )}
                 </div>
               </div>
             ))}
             {!recentLabs?.length && (
-              <p className="text-sm text-[hsl(var(--muted-foreground))] py-4 text-center">No recent results</p>
+              <div className="text-center py-8 bg-[#F8FAFC] border border-dashed border-[#E2E8F0] rounded-2xl">
+                <p className="text-xs text-[#94A3B8]">No lab results on file yet</p>
+              </div>
             )}
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Active medications */}
-      {(activeMeds?.length ?? 0) > 0 && (
-        <Card>
-          <div className="section-header">
-            <h2 className="section-title">Active Medications</h2>
-            <Link href="/portal/medications" className="text-xs text-blue-400 hover:text-blue-300">View all →</Link>
+      {/* Patient Personal Profile Information Card */}
+      <div id="my-profile-section" className="bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-6">
+        <div className="flex items-center gap-3 border-b border-[#F1F5F9] pb-4">
+          <div className="w-10 h-10 rounded-2xl bg-[#0B2A55]/10 border border-[#0B2A55]/20 flex items-center justify-center text-[#0B2A55]">
+            <User className="w-5 h-5" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {activeMeds?.map((rx: any) => (
-              <div key={rx.id} className="flex items-center gap-3 p-3 rounded-lg bg-[hsl(var(--surface-hover))] border border-[hsl(var(--border-muted))]">
-                <Pill className="w-4 h-4 text-amber-400 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium">{rx.drug_name}</p>
-                  <p className="text-xs text-[hsl(var(--muted-foreground))]">{rx.dosage} · {rx.frequency}</p>
-                </div>
+          <div>
+            <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Personal Profile & Password</h2>
+            <p className="text-xs text-[#475569]">Your record details on file · Change password</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Patient Details */}
+          <div className="space-y-4 bg-[#F8FAFC] border border-[#F1F5F9] rounded-2xl p-6">
+            <h3 className="font-cambria font-bold text-sm text-[#0B2A55] border-b border-[#E2E8F0] pb-2">
+              Patient Data
+            </h3>
+            <dl className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <dt className="text-[#94A3B8] font-medium">Full Name</dt>
+                <dd className="font-bold text-[#0F172A] mt-0.5">{patient.first_name} {patient.last_name}</dd>
               </div>
-            ))}
+              <div>
+                <dt className="text-[#94A3B8] font-medium">Medical Record No.</dt>
+                <dd className="font-mono font-bold text-[#0891B2] mt-0.5">{patient.mrn ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-[#94A3B8] font-medium">Date of Birth</dt>
+                <dd className="font-bold text-[#0F172A] mt-0.5">{formatDate(patient.date_of_birth)}</dd>
+              </div>
+              <div>
+                <dt className="text-[#94A3B8] font-medium">Email Address</dt>
+                <dd className="font-semibold text-[#0F172A] mt-0.5 break-all">{patient.email ?? '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-[#94A3B8] font-medium">Phone Number</dt>
+                <dd className="font-semibold text-[#0F172A] mt-0.5">{patient.phone ?? '—'}</dd>
+              </div>
+            </dl>
           </div>
-        </Card>
-      )}
+
+          {/* Change Password */}
+          <div className="space-y-4 bg-[#F8FAFC] border border-[#F1F5F9] rounded-2xl p-6">
+            <h3 className="font-cambria font-bold text-sm text-[#0B2A55] border-b border-[#E2E8F0] pb-2">
+              Update Account Password
+            </h3>
+            <ChangePasswordForm />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

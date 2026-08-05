@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,9 +10,10 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
 import { signUpPatient, bookPublicAppointment } from '@/app/actions';
 import { Input } from '@/components/ui';
+import { CustomLoader } from '@/components/ui/CustomLoader';
 import {
-  Cross, ArrowRight, ShieldCheck, CalendarDays,
-  FileText, MessageSquare,
+  ArrowRight, ShieldCheck, CalendarDays,
+  FileText, MessageSquare, CheckCircle2
 } from 'lucide-react';
 
 const schema = z.object({
@@ -74,11 +76,9 @@ function SignupForm() {
     },
   });
 
-
   const onSubmit = async ({ email, password, firstName, lastName, dateOfBirth }: FormData) => {
     setError(null);
     try {
-      // Step 1: Create user server-side with email_confirm: true (no email verification)
       const result = await signUpPatient(email, password, firstName, lastName, dateOfBirth);
 
       if ('error' in result) {
@@ -86,15 +86,12 @@ function SignupForm() {
         return;
       }
 
-      // Step 2: Immediately sign in — user is already confirmed, no email needed
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        // Account was created but auto-login failed — show success + redirect to login
         setSuccess(true);
         return;
       }
 
-      // Step 3: Handle booking redirect (portal-linked appointment)
       if (isBookingRedirect) {
         try {
           const scheduledAt = new Date(`${bookingDate}T${bookingTime}:00`).toISOString();
@@ -113,7 +110,6 @@ function SignupForm() {
         }
       }
 
-      // Step 4: Redirect to portal dashboard with booking success indicator if applicable
       router.push(isBookingRedirect ? '/portal?booking_success=true' : '/portal');
       router.refresh();
     } catch (err: any) {
@@ -122,90 +118,83 @@ function SignupForm() {
     }
   };
 
-
-  // ─── Success Screen ──────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--background))] px-6">
-        <div className="relative z-10 max-w-md w-full text-center space-y-6 animate-slide-up">
-          {/* Animated check ring */}
-          <div className="mx-auto flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30">
-            <svg className="w-9 h-9 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] px-6">
+        <div className="relative z-10 max-w-md w-full text-center space-y-6 animate-slide-up bg-white border border-[#E2E8F0] p-8 rounded-3xl shadow-xl">
+          <div className="mx-auto flex items-center justify-center w-20 h-20 rounded-full bg-[#16A34A]/10 border-2 border-[#16A34A]/30">
+            <CheckCircle2 className="w-10 h-10 text-[#16A34A]" />
           </div>
 
           <div className="space-y-2">
-            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">
+            <h2 className="font-cambria text-3xl font-bold text-[#0B2A55]">
               Account Created!
             </h2>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] leading-relaxed">
-              Your patient portal account is ready. Sign in below to access your dashboard.
+            <p className="text-sm text-[#475569] leading-relaxed">
+              Your MediSynx patient portal account is ready. Sign in below to access your dashboard.
             </p>
           </div>
 
           <Link
             href="/login"
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold hover:bg-[hsl(220,55%,28%)] transition-all"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-[#0891B2] text-white text-sm font-bold hover:bg-[#0F766E] transition-all shadow-md"
           >
-            Back to Sign In <ArrowRight className="w-4 h-4" />
+            Sign In Now <ArrowRight className="w-4 h-4" />
           </Link>
-
-          <p className="text-xs text-[hsl(var(--muted-foreground))] opacity-50">
-            ⚠️ Demo / Portfolio — not a certified HIPAA system
-          </p>
         </div>
       </div>
     );
   }
 
-  // ─── Signup Form ─────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex w-full">
+    <div className="min-h-screen flex w-full relative">
+      {/* Custom Auth Loading Spinner */}
+      {isSubmitting && <CustomLoader fullScreen={true} message="Creating Portal Account..." />}
 
-      {/* ── Left Panel ─────────────────────────────────────────── */}
-      <div
-        className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 relative overflow-hidden"
-        style={{ background: 'hsl(220,45%,11%)' }}
-      >
-        {/* Radial glows */}
+      {/* ── Left Panel — Navy (#0B2A55) Brand Sidebar ──────────── */}
+      <div className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 bg-[#0B2A55] text-white relative overflow-hidden">
+        {/* Cyan & Teal Background Glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 -right-20 w-[450px] h-[450px] rounded-full bg-[hsl(43,62%,48%)]/6 blur-[100px]" />
-          <div className="absolute bottom-0 left-0 w-[350px] h-[350px] rounded-full bg-[hsl(215,75%,55%)]/8 blur-[100px]" />
+          <div className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full bg-[#0891B2]/20 blur-[120px]" />
+          <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-[#14B8A6]/20 blur-[100px]" />
         </div>
 
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[hsl(43,62%,48%)]/15 border border-[hsl(43,62%,48%)]/30">
-            <Cross className="w-5 h-5 text-[hsl(43,62%,65%)] fill-[hsl(43,62%,65%)]" />
-          </div>
-          <span className="font-display text-xl font-semibold text-white tracking-wide">
-            Medi<span className="text-[hsl(43,62%,60%)]">Core</span>
-          </span>
+        {/* Prominent Large Logo Box */}
+        <div className="relative z-10">
+          <Link href="/" className="inline-flex items-center bg-white border border-[#E2E8F0] p-3.5 rounded-2xl shadow-sm w-48 sm:w-60 h-16 sm:h-20">
+            <Image
+              src="/images/image.png"
+              alt="MediSynx EHR Logo"
+              width={240}
+              height={80}
+              className="object-contain w-full h-full p-0.5"
+              priority
+            />
+          </Link>
         </div>
 
         {/* Editorial content */}
         <div className="relative z-10 space-y-8">
-          <div className="w-10 h-px bg-[hsl(43,62%,48%)]" />
+          <div className="w-12 h-1 bg-gradient-to-r from-[#0891B2] via-[#14B8A6] to-[#4CAF50] rounded-full" />
 
           <div className="space-y-4">
-            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(43,62%,55%)]">
+            <span className="text-xs font-bold tracking-widest uppercase text-[#22D3EE] bg-[#0891B2]/20 px-3 py-1 rounded-full border border-[#0891B2]/30">
               Patient Portal
-            </p>
-            <h2 className="font-display text-4xl font-600 text-white leading-tight">
+            </span>
+            <h2 className="font-cambria text-4xl font-bold text-white leading-tight">
               Your health records,<br />instantly accessible.
             </h2>
-            <p className="text-sm text-[hsl(215,20%,60%)] leading-relaxed max-w-sm">
+            <p className="text-sm text-slate-300 leading-relaxed max-w-sm">
               Create a free account to unlock your complete health dashboard — view records, manage appointments, and connect with clinical staff.
             </p>
           </div>
 
           {/* Portal perks */}
-          <ul className="space-y-3">
+          <ul className="space-y-3.5">
             {PORTAL_PERKS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3 text-sm text-[hsl(215,15%,65%)]">
-                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[hsl(43,62%,48%)]/10 border border-[hsl(43,62%,48%)]/20 shrink-0">
-                  <Icon className="w-3.5 h-3.5 text-[hsl(43,62%,55%)]" />
+              <li key={label} className="flex items-center gap-3 text-sm text-slate-200 font-medium">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#0891B2]/20 border border-[#0891B2]/30 shrink-0">
+                  <Icon className="w-4 h-4 text-[#22D3EE]" />
                 </span>
                 {label}
               </li>
@@ -214,46 +203,48 @@ function SignupForm() {
         </div>
 
         <div className="relative z-10">
-          <p className="text-xs text-[hsl(215,15%,40%)]">
-            © {new Date().getFullYear()} MediCore Healthcare · Demo Portfolio
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} MediSynx EHR · Smart Records. Better Care.
           </p>
         </div>
       </div>
 
-      {/* ── Right Panel — form ──────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[hsl(var(--background))] relative overflow-y-auto">
-        {/* Background glows */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-48 -right-48 w-[500px] h-[500px] rounded-full bg-[hsl(var(--primary))]/5 blur-[120px]" />
-          <div className="absolute -bottom-48 -left-48 w-[400px] h-[400px] rounded-full bg-[hsl(var(--accent))]/5 blur-[100px]" />
-        </div>
-
+      {/* ── Right Panel — Form ──────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 bg-[#F8FAFC] relative overflow-y-auto">
         <div className="relative z-10 w-full max-w-[440px] animate-slide-up space-y-8">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[hsl(var(--primary))] mb-1">
-              <Cross className="w-6 h-6 text-white fill-white" />
+          {/* Mobile Logo Header */}
+          <div className="lg:hidden text-center space-y-3">
+            <div className="inline-flex items-center justify-center bg-white p-3 rounded-2xl border border-[#E2E8F0] shadow-sm mb-1 w-44 h-14">
+              <Image
+                src="/images/image.png"
+                alt="MediSynx EHR Logo"
+                width={180}
+                height={60}
+                className="object-contain w-full h-full"
+              />
             </div>
-            <h1 className="font-display text-2xl font-semibold text-[hsl(var(--foreground))]">
-              Medi<span className="text-[hsl(var(--accent))]">Core</span> EHR
+            <h1 className="font-cambria text-2xl font-bold text-[#0B2A55]">
+              MediSynx Patient Registration
             </h1>
-            <p className="text-sm text-[hsl(var(--muted-foreground))]">Register for your patient portal</p>
+            <p className="text-sm text-[#475569]">Register for your patient portal</p>
           </div>
 
-          {/* Heading */}
-          <div className="hidden lg:block space-y-1">
-            <p className="text-xs font-semibold tracking-widest uppercase text-[hsl(var(--accent))]">Get Started</p>
-            <h2 className="font-display text-3xl font-600 text-[hsl(var(--foreground))]">Create Account</h2>
-            <p className="text-sm text-[hsl(var(--muted-foreground))] pt-1">
+          {/* Desktop Heading */}
+          <div className="hidden lg:block space-y-1.5">
+            <span className="text-xs font-bold tracking-widest uppercase text-[#0891B2]">
+              Get Started
+            </span>
+            <h2 className="font-cambria text-3xl font-bold text-[#0B2A55]">Create Account</h2>
+            <p className="text-sm text-[#475569]">
               Register to explore your personal health dashboard.
             </p>
           </div>
 
           {/* Booking redirect notice */}
           {isBookingRedirect && (
-            <div className="alert-info text-sm">
-              <span>🏥 Complete your registration below to confirm your appointment reservation.</span>
+            <div className="p-3.5 rounded-xl bg-[#0891B2]/10 border border-[#0891B2]/20 text-[#0891B2] text-xs font-bold">
+              🏥 Complete your registration below to confirm your appointment reservation.
             </div>
           )}
 
@@ -301,7 +292,7 @@ function SignupForm() {
             />
 
             {error && (
-              <div className="alert-error text-sm">
+              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 text-sm">
                 <span>{typeof error === 'string' ? error : 'An unexpected error occurred. Please try again.'}</span>
               </div>
             )}
@@ -310,7 +301,7 @@ function SignupForm() {
               type="submit"
               disabled={isSubmitting}
               id="signup-submit-btn"
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] text-sm font-semibold tracking-wide hover:bg-[hsl(220,55%,28%)] disabled:opacity-60 transition-all duration-200 shadow-md mt-1"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-sm font-bold tracking-wide hover:opacity-95 disabled:opacity-60 transition-all duration-200 shadow-md"
             >
               {isSubmitting ? (
                 <>
@@ -318,33 +309,29 @@ function SignupForm() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Creating account…
+                  Creating Account…
                 </>
               ) : (
                 <>
                   {isBookingRedirect ? 'Create Account & Book' : 'Create Account'}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 text-white" />
                 </>
               )}
             </button>
           </form>
 
           {/* Footer link */}
-          <div className="pt-1 border-t border-[hsl(var(--border))] text-center">
-            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-5">
+          <div className="pt-2 border-t border-[#E2E8F0] text-center">
+            <p className="text-sm text-[#475569] mt-4">
               Already have an account?{' '}
               <Link
                 href={getLoginUrl()}
-                className="text-[hsl(var(--accent))] font-semibold hover:underline underline-offset-2 transition-colors"
+                className="text-[#0891B2] font-bold hover:underline underline-offset-2 transition-colors"
               >
                 Sign in
               </Link>
             </p>
           </div>
-
-          <p className="text-center text-xs text-[hsl(var(--muted-foreground))] opacity-50">
-            ⚠️ Demo / Portfolio — not a certified HIPAA system
-          </p>
         </div>
       </div>
     </div>
@@ -353,11 +340,7 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[hsl(220,45%,11%)] text-white font-display text-xl">
-        Loading…
-      </div>
-    }>
+    <Suspense fallback={<CustomLoader message="Preparing registration..." />}>
       <SignupForm />
     </Suspense>
   );

@@ -3,20 +3,19 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { PortalBookingClient } from '@/components/PortalBookingClient';
 import { PortalAppointmentsClient } from './client';
-import { Calendar } from 'lucide-react';
+import { Calendar, Sparkles } from 'lucide-react';
 
-export const metadata: Metadata = { title: 'My Appointments' };
+export const metadata: Metadata = { title: 'My Appointments | MediSynx EHR' };
 
 export default async function PortalAppointmentsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // ── Always fetch profile + doctors in parallel ───────────────────
   const adminSupabase = createAdminClient();
 
   const [{ data: patient }, { data: profileData }, { data: doctorsData }] = await Promise.all([
-    supabase.from('patients').select('id').eq('profile_id', user.id).single(),
+    supabase.from('patients').select('*').eq('profile_id', user.id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     adminSupabase
       .from('profiles')
@@ -30,36 +29,33 @@ export default async function PortalAppointmentsPage() {
 
   const doctors = doctorsData ?? [];
 
-  // ── No patient record yet — onboarding booking flow ─────────────
+  // No patient record yet — onboarding booking flow with DOB auto-filled if available
   if (!patient) {
     return (
       <div className="space-y-8 max-w-4xl mx-auto py-6 animate-fade-in">
-        <div className="card bg-gradient-to-r from-blue-600/20 to-blue-800/10 border-blue-500/20 p-6 flex flex-col items-center text-center gap-2">
-          <Calendar className="w-12 h-12 text-blue-400 animate-pulse" />
-          <h1 className="text-xl font-bold text-[hsl(var(--foreground))]">
+        <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-3xl p-8 text-center space-y-3 shadow-xl border border-[#0891B2]/30">
+          <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mx-auto text-[#22D3EE] backdrop-blur-sm">
+            <Calendar className="w-7 h-7" />
+          </div>
+          <h1 className="font-cambria text-2xl sm:text-3xl font-bold">
             Schedule Your Onboarding Consultation
           </h1>
-          <p className="text-xs text-[hsl(var(--muted-foreground))] max-w-md">
-            To activate your patient portal and view future appointments, please schedule your
-            initial onboarding consultation below.
+          <p className="text-xs sm:text-sm text-slate-200 max-w-lg mx-auto leading-relaxed">
+            To activate your patient portal and view future medical charts, please schedule your initial consultation below.
           </p>
         </div>
+
         <PortalBookingClient doctors={doctors} profile={profileData} />
       </div>
     );
   }
 
-  // ── Patient exists — fetch full appointment history via admin client ─
-  // The user supabase client relies on RLS (is_own_patient_record → profile_id match).
-  // If profile_id wasn't linked yet on some records the query silently returns [].
-  // We already proved this is the patient's own record via the profile_id lookup above,
-  // so using adminSupabase here is safe and always returns the complete history.
+  // Patient exists — fetch full appointment history
   const { data: appointments } = await adminSupabase
     .from('appointments')
     .select('*, provider:profiles!appointments_provider_id_fkey(first_name, last_name, specialty)')
     .eq('patient_id', patient.id)
     .order('scheduled_at', { ascending: false });
-
 
   const now = new Date();
 
@@ -76,23 +72,31 @@ export default async function PortalAppointmentsPage() {
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="section-header">
-        <div>
-          <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">My Appointments</h1>
-          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
-            {upcoming.length} upcoming · {past.length} past
+    <div className="space-y-8 max-w-7xl mx-auto animate-fade-in">
+      {/* Header Banner */}
+      <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#0891B2]/10 text-[#0891B2] border border-[#0891B2]/20">
+            <Sparkles className="w-3.5 h-3.5" /> Outpatient Schedule
+          </span>
+          <h1 className="font-cambria text-2xl sm:text-3xl font-bold text-[#0B2A55]">My Appointments</h1>
+          <p className="text-xs sm:text-sm text-[#475569]">
+            {upcoming.length} upcoming · {past.length} past consultations · Patient DOB: {patient.date_of_birth ?? 'On file'}
           </p>
+        </div>
+
+        <div className="w-12 h-12 rounded-2xl bg-[#0891B2]/10 border border-[#0891B2]/20 flex items-center justify-center text-[#0891B2] shrink-0">
+          <Calendar className="w-6 h-6" />
         </div>
       </div>
 
-      {/* Appointments list + inline booking panel */}
+      {/* Appointments Client Component with fetched patientRecord */}
       <PortalAppointmentsClient
         upcoming={upcoming as any}
         past={past as any}
         doctors={doctors}
         profile={profileData}
+        patientRecord={patient}
       />
     </div>
   );
