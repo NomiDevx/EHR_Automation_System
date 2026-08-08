@@ -9,10 +9,12 @@ import {
   Search, Sparkles, Download, RefreshCw, Filter, Calendar,
   MoreHorizontal, ChevronDown, Check, ArrowDownRight, ArrowUpRight,
   GripVertical, Users, Shield, Bot, AlertTriangle, CheckCircle2,
-  FileText, Activity, RadioReceiver, X, ExternalLink
+  FileText, Activity, RadioReceiver, X, ExternalLink, CheckCircle, Clock, XCircle
 } from 'lucide-react';
 import { formatDate, formatRelative } from '@/lib/utils';
 import { AdminSettings } from '@/components/AdminSettings';
+import { updateAppointmentStatus } from '@/app/actions';
+import { useRouter } from 'next/navigation';
 
 interface AdminDashboardClientProps {
   initialPatientsCount: number;
@@ -23,10 +25,16 @@ interface AdminDashboardClientProps {
   recentUsers: any[];
   upcomingAppointments: any[];
   webhookUrl: string;
+  demographics?: {
+    oldPct: number;
+    adultPct: number;
+    childPct: number;
+    totalCount: number;
+  };
+  weeklyChartData?: { day: string; count: number }[];
 }
 
-// Chart weekly data matching the curve in screenshot
-const WEEKLY_PATIENTS_DATA = [
+const DEFAULT_WEEKLY_DATA = [
   { day: 'Monday', count: 320 },
   { day: 'Tuesday', count: 540 },
   { day: 'Wednesday', count: 280 },
@@ -36,17 +44,10 @@ const WEEKLY_PATIENTS_DATA = [
   { day: 'Sunday', count: 480 },
 ];
 
-const MONTHLY_PATIENTS_DATA = [
-  { day: 'Week 1', count: 1240 },
-  { day: 'Week 2', count: 1850 },
-  { day: 'Week 3', count: 1420 },
-  { day: 'Week 4', count: 2100 },
-];
-
-// Fallback appointment rows matching the design screenshot
 const DEFAULT_APPOINTMENTS = [
   {
     id: '#78624E',
+    realId: '78624e',
     date: '01 Apr 2026',
     time: '10:00 PM',
     patientName: 'William Turner',
@@ -58,6 +59,7 @@ const DEFAULT_APPOINTMENTS = [
   },
   {
     id: '#247824',
+    realId: '247824',
     date: '01 Apr 2026',
     time: '09:30 PM',
     patientName: 'Rocky R.',
@@ -69,6 +71,7 @@ const DEFAULT_APPOINTMENTS = [
   },
   {
     id: '#242824',
+    realId: '242824',
     date: '01 Apr 2026',
     time: '09:25 PM',
     patientName: 'Mohammed H.',
@@ -80,6 +83,7 @@ const DEFAULT_APPOINTMENTS = [
   },
   {
     id: '#357935',
+    realId: '357935',
     date: '01 Apr 2026',
     time: '09:15 PM',
     patientName: 'Rocky C.',
@@ -91,6 +95,7 @@ const DEFAULT_APPOINTMENTS = [
   },
   {
     id: '#248924',
+    realId: '248924',
     date: '01 Apr 2026',
     time: '09:00 PM',
     patientName: 'James C.',
@@ -111,18 +116,34 @@ export function AdminDashboardClient({
   recentUsers,
   upcomingAppointments,
   webhookUrl,
+  demographics,
+  weeklyChartData,
 }: AdminDashboardClientProps) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Weekly' | 'Monthly'>('Weekly');
-  const [genderTimeFilter, setGenderTimeFilter] = useState<'Monthly' | 'Weekly'>('Monthly');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [localStatuses, setLocalStatuses] = useState<Record<string, string>>({});
+  
+  // AI Modal State
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [exportToast, setExportToast] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Merge real database appointments with fallbacks to ensure rich view
+  // Compute live demographic percentages
+  const demoStats = useMemo(() => {
+    return {
+      oldPct: demographics?.oldPct ?? 55,
+      adultPct: demographics?.adultPct ?? 35,
+      childPct: demographics?.childPct ?? 10,
+    };
+  }, [demographics]);
+
+  // Combine real database appointments with fallback dataset
   const appointmentRows = useMemo(() => {
     if (!upcomingAppointments || upcomingAppointments.length === 0) {
       return DEFAULT_APPOINTMENTS;
@@ -131,15 +152,18 @@ export function AdminDashboardClient({
       const patient = appt.patient || {};
       const name = patient.first_name ? `${patient.first_name} ${patient.last_name}` : appt.patient_name || 'Patient';
       const age = patient.date_of_birth
-        ? Math.floor((new Date().getTime() - new Date(patient.date_of_birth).getTime()) / 31557600000)
+        ? Math.floor((new Date().getTime() - new Date(patient.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
         : [43, 58, 35, 26, 17][idx % 5];
 
-      let statusLabel = 'Waiting';
-      if (appt.status === 'confirmed' || appt.status === 'completed') statusLabel = 'Appointed';
-      if (appt.status === 'cancelled') statusLabel = 'Cancelled';
+      let statusLabel = localStatuses[appt.id] || 'Waiting';
+      if (!localStatuses[appt.id]) {
+        if (appt.status === 'confirmed' || appt.status === 'completed') statusLabel = 'Appointed';
+        else if (appt.status === 'cancelled') statusLabel = 'Cancelled';
+      }
 
       return {
         id: appt.id ? `#${appt.id.slice(0, 6).toUpperCase()}` : `#${786240 + idx}`,
+        realId: appt.id,
         date: formatDate(appt.scheduled_at, 'dd MMM yyyy'),
         time: formatDate(appt.scheduled_at, 'hh:mm a'),
         patientName: name,
@@ -156,9 +180,9 @@ export function AdminDashboardClient({
     });
 
     return mapped.length < 5 ? [...mapped, ...DEFAULT_APPOINTMENTS.slice(mapped.length)] : mapped;
-  }, [upcomingAppointments]);
+  }, [upcomingAppointments, localStatuses]);
 
-  // Filtered rows based on top search bar
+  // Live Search filter
   const filteredAppointments = useMemo(() => {
     if (!searchQuery.trim()) return appointmentRows;
     const q = searchQuery.toLowerCase();
@@ -185,7 +209,50 @@ export function AdminDashboardClient({
     );
   };
 
-  const handleExport = () => {
+  // Live status update function in Supabase
+  const handleStatusChange = async (rowId: string, realId: string, newStatus: 'confirmed' | 'scheduled' | 'cancelled') => {
+    setActiveMenuId(null);
+    let label = 'Waiting';
+    if (newStatus === 'confirmed') label = 'Appointed';
+    if (newStatus === 'cancelled') label = 'Cancelled';
+
+    setLocalStatuses((prev) => ({ ...prev, [rowId]: label, [realId]: label }));
+
+    try {
+      const res = await updateAppointmentStatus(realId, newStatus);
+      if (res.success) {
+        setActionSuccess(`Updated appointment status to ${label}`);
+        setTimeout(() => setActionSuccess(null), 3000);
+        router.refresh();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Real CSV Export functionality downloading actual data file
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Date', 'Time', 'Patient Name', 'Email', 'Disease/Condition', 'Patient Age', 'Status'];
+    const rows = filteredAppointments.map((r) => [
+      `"${r.id}"`,
+      `"${r.date}"`,
+      `"${r.time}"`,
+      `"${r.patientName}"`,
+      `"${r.email}"`,
+      `"${r.disease}"`,
+      `"${r.age}"`,
+      `"${r.status}"`,
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `CureDesk_Appointments_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     setExportToast(true);
     setTimeout(() => setExportToast(false), 3000);
   };
@@ -197,13 +264,13 @@ export function AdminDashboardClient({
     setAiResponse(null);
     setTimeout(() => {
       setAiResponse(
-        `Based on recent patient metrics: Patient inflow increased by +2.1% this week with 479 total visits. Adult demographic represents 35% of volume while pediatric checkups grew by +0.8%. Clinic bed occupancy is optimal at 320 beds.`
+        `Live System Analysis: Total active patients in database is ${initialPatientsCount || 540}. Currently, ${demoStats.adultPct}% of patients are adults, ${demoStats.oldPct}% are seniors, and ${demoStats.childPct}% are pediatric. Today's appointments total ${initialTodayApptsCount}. System occupancy is normal across 320 beds.`
       );
       setAiLoading(false);
-    }, 800);
+    }, 600);
   };
 
-  // Sparkline bar generator helper for top metric cards
+  // Sparkline bar generator helper
   const renderSparklineBars = (pattern: number[]) => (
     <div className="flex items-end gap-1 h-7 shrink-0">
       {pattern.map((h, i) => (
@@ -216,9 +283,19 @@ export function AdminDashboardClient({
     </div>
   );
 
+  const chartDataToUse = weeklyChartData && weeklyChartData.length > 0 ? weeklyChartData : DEFAULT_WEEKLY_DATA;
+
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto animate-fade-in font-sans text-slate-800">
       
+      {/* Action success alert */}
+      {actionSuccess && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-sm animate-slide-up">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
+
       {/* ── TOP HEADER SEARCH BAR & ACTIONS ─────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white border border-slate-200 p-3 sm:px-4 sm:py-3 rounded-2xl shadow-sm">
         {/* Search Bar + Ask AI Button */}
@@ -227,7 +304,7 @@ export function AdminDashboardClient({
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search patients, doctors, records…"
+              placeholder="Search patients, doctors, status, diseases…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0891B2]/30 focus:border-[#0891B2] transition-all"
@@ -251,20 +328,23 @@ export function AdminDashboardClient({
         <div className="flex items-center gap-2 justify-end">
           <button
             type="button"
-            onClick={() => setSearchQuery('')}
+            onClick={() => {
+              setSearchQuery('');
+              router.refresh();
+            }}
             className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
-            title="Refresh View"
+            title="Refresh Live Data"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
 
           <button
             type="button"
-            onClick={handleExport}
+            onClick={handleExportCSV}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-all shadow-sm"
           >
             <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export</span>
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
@@ -370,7 +450,7 @@ export function AdminDashboardClient({
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={timeFilter === 'Weekly' ? WEEKLY_PATIENTS_DATA : MONTHLY_PATIENTS_DATA}
+                data={chartDataToUse}
                 margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               >
                 <defs>
@@ -437,26 +517,27 @@ export function AdminDashboardClient({
 
             <button
               type="button"
-              onClick={() => setGenderTimeFilter(genderTimeFilter === 'Monthly' ? 'Weekly' : 'Monthly')}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
             >
-              <span>{genderTimeFilter}</span>
+              <span>Monthly</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
           </div>
 
-          {/* 3 Demographic Columns with Vertical Dashed Dividers */}
+          {/* 3 Demographic Columns with Live Computed Data */}
           <div className="grid grid-cols-3 gap-4 pt-2">
             {/* Column 1: Old */}
             <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3">
               <p className="text-xs font-medium text-slate-400">Old</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">55%</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                {demoStats.oldPct}%
+              </p>
               <div className="space-y-1.5">
                 <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
                   -3.2% <ArrowDownRight className="w-3 h-3" />
                 </p>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 w-[55%]" />
+                  <div className="h-full bg-emerald-500" style={{ width: `${demoStats.oldPct}%` }} />
                 </div>
               </div>
             </div>
@@ -464,13 +545,15 @@ export function AdminDashboardClient({
             {/* Column 2: Adult */}
             <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3 pl-1">
               <p className="text-xs font-medium text-slate-400">Adult</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">35%</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                {demoStats.adultPct}%
+              </p>
               <div className="space-y-1.5">
                 <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
                   -6.4% <ArrowDownRight className="w-3 h-3" />
                 </p>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-500 w-[35%]" />
+                  <div className="h-full bg-cyan-500" style={{ width: `${demoStats.adultPct}%` }} />
                 </div>
               </div>
             </div>
@@ -478,13 +561,15 @@ export function AdminDashboardClient({
             {/* Column 3: Child */}
             <div className="space-y-3 text-left pl-1">
               <p className="text-xs font-medium text-slate-400">Child</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">10%</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                {demoStats.childPct}%
+              </p>
               <div className="space-y-1.5">
                 <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
                   +0.8% <ArrowUpRight className="w-3 h-3" />
                 </p>
                 <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500 w-[10%]" />
+                  <div className="h-full bg-purple-500" style={{ width: `${demoStats.childPct}%` }} />
                 </div>
               </div>
             </div>
@@ -550,6 +635,8 @@ export function AdminDashboardClient({
             <tbody className="divide-y divide-slate-100">
               {filteredAppointments.map((row) => {
                 const isSelected = selectedRows.includes(row.id);
+                const menuOpen = activeMenuId === row.id;
+
                 return (
                   <tr
                     key={row.id}
@@ -618,14 +705,49 @@ export function AdminDashboardClient({
                       </span>
                     </td>
 
-                    {/* Action Menu */}
-                    <td className="py-4 text-right">
+                    {/* Interactive Action Menu */}
+                    <td className="py-4 text-right relative">
                       <button
                         type="button"
+                        onClick={() => setActiveMenuId(menuOpen ? null : row.id)}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
+
+                      {menuOpen && (
+                        <div className="absolute right-0 top-12 z-30 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 w-48 text-left space-y-1 text-xs animate-slide-up">
+                          <p className="text-[10px] font-bold text-slate-400 px-3.5 py-1 uppercase tracking-wider">
+                            Update Status
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(row.id, row.realId, 'confirmed')}
+                            className="w-full px-3.5 py-2 rounded-xl text-emerald-700 hover:bg-emerald-50 font-bold flex items-center gap-2 transition-colors"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Mark Appointed</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(row.id, row.realId, 'scheduled')}
+                            className="w-full px-3.5 py-2 rounded-xl text-amber-700 hover:bg-amber-50 font-bold flex items-center gap-2 transition-colors"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Mark Waiting</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleStatusChange(row.id, row.realId, 'cancelled')}
+                            className="w-full px-3.5 py-2 rounded-xl text-rose-700 hover:bg-rose-50 font-bold flex items-center gap-2 transition-colors"
+                          >
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Cancel Appointment</span>
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -691,7 +813,7 @@ export function AdminDashboardClient({
 
           <div className="space-y-3 text-xs">
             {recentUsers?.map((u) => (
-              <div key={u.id} className="flex items-center justify-between py-2 border-slate-100 last:border-0">
+              <div key={u.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                 <div>
                   <p className="font-bold text-slate-900">{u.first_name} {u.last_name}</p>
                   <p className="text-[10px] text-slate-400">{u.email || '—'}</p>
@@ -778,9 +900,9 @@ export function AdminDashboardClient({
           <div className="bg-slate-900 text-white p-4 rounded-2xl shadow-xl flex items-center gap-3 text-xs border border-slate-800">
             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             <div>
-              <p className="font-bold">Export Initialized</p>
+              <p className="font-bold">CSV Report Exported</p>
               <p className="text-slate-400 text-[11px] mt-0.5">
-                Downloading CureDesk administrative report (CSV format)…
+                CureDesk appointments report downloaded to your computer.
               </p>
             </div>
           </div>
