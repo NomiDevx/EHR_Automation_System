@@ -40,14 +40,14 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
       <div className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8 w-full max-w-6xl mx-auto">
         <header className="border border-[#E2E8F0] bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-[#0B2A55]/5 px-4 sm:px-6 py-2 transition-all duration-300 flex items-center justify-between gap-4">
 
-          {/* PROMINENT LARGE LOGO CARD — Clean & Clearly Visible */}
+          {/* PROMINENT LOGO CARD — /images/image.png */}
           <Link href="/" className="flex items-center group shrink-0">
             <div className="relative h-12 sm:h-14 w-44 sm:w-56 bg-white border border-[#E2E8F0] rounded-2xl px-3 py-1.5 shadow-sm flex items-center justify-center overflow-hidden group-hover:border-[#0891B2] group-hover:shadow-md transition-all">
               <Image
                 src="/images/image.png"
                 alt="MediSynx EHR Logo"
-                width={220}
-                height={70}
+                width={240}
+                height={80}
                 className="object-contain w-full h-full p-0.5"
                 priority
               />
@@ -150,8 +150,8 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
             {/* Brand Column */}
             <div className="md:col-span-5 space-y-4">
-              {/* Prominent Large Footer Logo Box */}
-              <div className="inline-flex items-center bg-white border border-[#E2E8F0] px-4 py-2.5 rounded-2xl shadow-sm w-48 sm:w-60 h-14 sm:h-16">
+              {/* Prominent Footer Logo Card — /images/image.png */}
+              <div className="inline-flex items-center bg-white border border-[#E2E8F0] px-4 py-2.5 rounded-2xl shadow-sm w-48 sm:w-60 h-14 sm:h-16 overflow-hidden">
                 <Image
                   src="/images/image.png"
                   alt="MediSynx EHR Logo"
