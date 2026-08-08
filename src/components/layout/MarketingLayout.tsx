@@ -40,18 +40,16 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
       <div className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8 w-full max-w-6xl mx-auto">
         <header className="border border-[#E2E8F0] bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-[#0B2A55]/5 px-4 sm:px-6 py-2 transition-all duration-300 flex items-center justify-between gap-4">
 
-          {/* PROMINENT LOGO CARD — /images/image.png */}
-          <Link href="/" className="flex items-center group shrink-0">
-            <div className="relative h-12 sm:h-14 w-44 sm:w-56 bg-white border border-[#E2E8F0] rounded-2xl px-3 py-1.5 shadow-sm flex items-center justify-center overflow-hidden group-hover:border-[#0891B2] group-hover:shadow-md transition-all">
-              <Image
-                src="/images/image.png"
-                alt="MediSynx EHR Logo"
-                width={240}
-                height={80}
-                className="object-contain w-full h-full p-0.5"
-                priority
-              />
-            </div>
+          {/* PROMINENT LARGE FREE STANDING LOGO — /images/image.png */}
+          <Link href="/" className="flex items-center shrink-0 py-0.5">
+            <Image
+              src="/images/image.png"
+              alt="MediSynx EHR Logo"
+              width={350}
+              height={60}
+              className="h-14 sm:h-20 w-auto max-w-[200px] sm:max-w-[280px] object-contain transition-transform hover:scale-105"
+              priority
+            />
           </Link>
 
           {/* Nav Links */}
@@ -150,16 +148,16 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
             {/* Brand Column */}
             <div className="md:col-span-5 space-y-4">
-              {/* Prominent Footer Logo Card — /images/image.png */}
-              <div className="inline-flex items-center bg-white border border-[#E2E8F0] px-4 py-2.5 rounded-2xl shadow-sm w-48 sm:w-60 h-14 sm:h-16 overflow-hidden">
+              {/* Free Standing Large Footer Logo — /images/image.png */}
+              <Link href="/" className="inline-block">
                 <Image
                   src="/images/image.png"
                   alt="MediSynx EHR Logo"
-                  width={240}
-                  height={80}
-                  className="object-contain w-full h-full p-0.5"
+                  width={350}
+                  height={100}
+                  className="h-16 sm:h-22 w-auto max-w-[240px] sm:max-w-[320px] object-contain brightness-0 invert"
                 />
-              </div>
+              </Link>
               <p className="text-sm text-slate-300 leading-relaxed max-w-sm font-normal">
                 Next-generation Electronic Health Records platform designed for high performance, smart clinical workflows, and seamless patient care.
               </p>

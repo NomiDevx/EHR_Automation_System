@@ -224,27 +224,23 @@ export function AppShell({ profile, children }: AppShellProps) {
         <div className="p-4 border-b border-[#12386D] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 overflow-hidden">
             {!collapsed ? (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl px-2.5 py-1.5 shadow-sm flex items-center justify-center h-12 w-44 overflow-hidden">
-                <Image
-                  src="/images/image.png"
-                  alt="MediSynx EHR Logo"
-                  width={160}
-                  height={50}
-                  className="object-contain w-full h-full"
-                  priority
-                />
-              </div>
+              <Image
+                src="/images/image.png"
+                alt="MediSynx EHR Logo"
+                width={250}
+                height={70}
+                className="h-12 sm:h-14 w-auto object-contain brightness-0 invert"
+                priority
+              />
             ) : (
-              <div className="bg-white border border-[#E2E8F0] rounded-xl p-1.5 shadow-sm flex items-center justify-center h-11 w-11 mx-auto overflow-hidden">
-                <Image
-                  src="/images/image.png"
-                  alt="MediSynx EHR Logo"
-                  width={40}
-                  height={40}
-                  className="object-contain w-full h-full"
-                  priority
-                />
-              </div>
+              <Image
+                src="/images/image.png"
+                alt="MediSynx EHR Logo"
+                width={50}
+                height={50}
+                className="h-10 w-10 object-contain brightness-0 invert mx-auto"
+                priority
+              />
             )}
           </Link>
         </div>
