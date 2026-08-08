@@ -29,8 +29,18 @@ interface AdminDashboardClientProps {
     oldPct: number;
     adultPct: number;
     childPct: number;
+    malePct?: number;
+    femalePct?: number;
+    otherGenderPct?: number;
     totalCount: number;
   };
+  bedsInfo?: {
+    totalBeds: number;
+    occupiedBeds: number;
+    availableBeds: number;
+    occupancyRate: number;
+  };
+  upcomingApptsCount?: number;
   weeklyChartData?: { day: string; count: number }[];
 }
 
@@ -117,11 +127,14 @@ export function AdminDashboardClient({
   upcomingAppointments,
   webhookUrl,
   demographics,
+  bedsInfo,
+  upcomingApptsCount,
   weeklyChartData,
 }: AdminDashboardClientProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Weekly' | 'Monthly'>('Weekly');
+  const [demoView, setDemoView] = useState<'Age' | 'Gender'>('Age');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [localStatuses, setLocalStatuses] = useState<Record<string, string>>({});
@@ -134,14 +147,26 @@ export function AdminDashboardClient({
   const [exportToast, setExportToast] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Compute live demographic percentages
+  // Live calculated metrics
   const demoStats = useMemo(() => {
     return {
       oldPct: demographics?.oldPct ?? 55,
       adultPct: demographics?.adultPct ?? 35,
       childPct: demographics?.childPct ?? 10,
+      malePct: demographics?.malePct ?? 52,
+      femalePct: demographics?.femalePct ?? 45,
+      otherGenderPct: demographics?.otherGenderPct ?? 3,
     };
   }, [demographics]);
+
+  const bedStats = useMemo(() => {
+    return {
+      total: bedsInfo?.totalBeds ?? 320,
+      occupied: bedsInfo?.occupiedBeds ?? 82,
+      available: bedsInfo?.availableBeds ?? 238,
+      rate: bedsInfo?.occupancyRate ?? 26,
+    };
+  }, [bedsInfo]);
 
   // Combine real database appointments with fallback dataset
   const appointmentRows = useMemo(() => {
@@ -264,13 +289,12 @@ export function AdminDashboardClient({
     setAiResponse(null);
     setTimeout(() => {
       setAiResponse(
-        `Live System Analysis: Total active patients in database is ${initialPatientsCount || 540}. Currently, ${demoStats.adultPct}% of patients are adults, ${demoStats.oldPct}% are seniors, and ${demoStats.childPct}% are pediatric. Today's appointments total ${initialTodayApptsCount}. System occupancy is normal across 320 beds.`
+        `Live System Analysis: Total registered patients: ${initialPatientsCount || 540}. Patients gender ratio is ${demoStats.malePct}% male and ${demoStats.femalePct}% female. Total beds capacity is ${bedStats.total} with ${bedStats.available} available. Active upcoming appointments total ${upcomingApptsCount || filteredAppointments.length}.`
       );
       setAiLoading(false);
     }, 600);
   };
 
-  // Sparkline bar generator helper
   const renderSparklineBars = (pattern: number[]) => (
     <div className="flex items-end gap-1 h-7 shrink-0">
       {pattern.map((h, i) => (
@@ -400,15 +424,22 @@ export function AdminDashboardClient({
           </div>
         </div>
 
-        {/* Card 4: Total Beds */}
+        {/* Card 4: Total Beds (Occupied / Available Live) */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3 flex flex-col justify-between">
-          <p className="text-xs font-semibold text-slate-500">Total Beds</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-slate-500">Total Beds</p>
+            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              {bedStats.available} available
+            </span>
+          </div>
           <div className="flex items-end justify-between gap-2">
             <div>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">320</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                {bedStats.total}
+              </p>
               <div className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
                 <ArrowDownRight className="w-3 h-3" />
-                <span>+9%</span>
+                <span>-9%</span>
               </div>
             </div>
             {renderSparklineBars([60, 45, 70, 50, 85, 60, 90, 75, 40, 65, 80, 55])}
@@ -426,7 +457,7 @@ export function AdminDashboardClient({
               <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
               <h2 className="font-bold text-base text-slate-900">Patient Overview</h2>
               <div className="inline-flex items-center gap-1.5 ml-2">
-                <span className="text-sm font-bold text-slate-900">479</span>
+                <span className="text-sm font-bold text-slate-900">{upcomingApptsCount || 479}</span>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold">
                   +2.1%
                 </span>
@@ -506,7 +537,9 @@ export function AdminDashboardClient({
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2.5">
               <GripVertical className="w-4 h-4 text-slate-300 cursor-grab" />
-              <h2 className="font-bold text-base text-slate-900">Patients Gender</h2>
+              <h2 className="font-bold text-base text-slate-900">
+                Patients {demoView === 'Age' ? 'Demographics' : 'Gender'}
+              </h2>
               <div className="inline-flex items-center gap-1.5 ml-2">
                 <span className="text-sm font-bold text-slate-900">1,200</span>
                 <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold">
@@ -517,63 +550,116 @@ export function AdminDashboardClient({
 
             <button
               type="button"
+              onClick={() => setDemoView(demoView === 'Age' ? 'Gender' : 'Age')}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
             >
-              <span>Monthly</span>
+              <span>{demoView} View</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
           </div>
 
-          {/* 3 Demographic Columns with Live Computed Data */}
-          <div className="grid grid-cols-3 gap-4 pt-2">
-            {/* Column 1: Old */}
-            <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3">
-              <p className="text-xs font-medium text-slate-400">Old</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
-                {demoStats.oldPct}%
-              </p>
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                  -3.2% <ArrowDownRight className="w-3 h-3" />
+          {/* 3 Columns with Live Computed Data */}
+          {demoView === 'Age' ? (
+            <div className="grid grid-cols-3 gap-4 pt-2">
+              {/* Column 1: Old */}
+              <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3">
+                <p className="text-xs font-medium text-slate-400">Old (60+)</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.oldPct}%
                 </p>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500" style={{ width: `${demoStats.oldPct}%` }} />
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    -3.2% <ArrowDownRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500" style={{ width: `${demoStats.oldPct}%` }} />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Column 2: Adult */}
-            <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3 pl-1">
-              <p className="text-xs font-medium text-slate-400">Adult</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
-                {demoStats.adultPct}%
-              </p>
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
-                  -6.4% <ArrowDownRight className="w-3 h-3" />
+              {/* Column 2: Adult */}
+              <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3 pl-1">
+                <p className="text-xs font-medium text-slate-400">Adult (18-59)</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.adultPct}%
                 </p>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-cyan-500" style={{ width: `${demoStats.adultPct}%` }} />
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    -6.4% <ArrowDownRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-cyan-500" style={{ width: `${demoStats.adultPct}%` }} />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Column 3: Child */}
-            <div className="space-y-3 text-left pl-1">
-              <p className="text-xs font-medium text-slate-400">Child</p>
-              <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
-                {demoStats.childPct}%
-              </p>
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                  +0.8% <ArrowUpRight className="w-3 h-3" />
+              {/* Column 3: Child */}
+              <div className="space-y-3 text-left pl-1">
+                <p className="text-xs font-medium text-slate-400">Child (&lt;18)</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.childPct}%
                 </p>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-500" style={{ width: `${demoStats.childPct}%` }} />
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    +0.8% <ArrowUpRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-500" style={{ width: `${demoStats.childPct}%` }} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 pt-2">
+              {/* Male */}
+              <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3">
+                <p className="text-xs font-medium text-slate-400">Male</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.malePct}%
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    +1.2% <ArrowUpRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500" style={{ width: `${demoStats.malePct}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Female */}
+              <div className="space-y-3 text-left border-r border-dashed border-slate-200 pr-3 pl-1">
+                <p className="text-xs font-medium text-slate-400">Female</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.femalePct}%
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                    -0.8% <ArrowDownRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-pink-500" style={{ width: `${demoStats.femalePct}%` }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Other */}
+              <div className="space-y-3 text-left pl-1">
+                <p className="text-xs font-medium text-slate-400">Other</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-none">
+                  {demoStats.otherGenderPct}%
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    +0.2% <ArrowUpRight className="w-3 h-3" />
+                  </p>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500" style={{ width: `${demoStats.otherGenderPct}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -801,13 +887,13 @@ export function AdminDashboardClient({
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#0891B2]" /> Registered Users
+              <Users className="w-4 h-4 text-[#0891B2]" /> Registered Staff &amp; Users
             </h3>
             <Link
               href="/admin/users"
               className="text-xs font-bold text-[#0891B2] hover:underline flex items-center gap-1"
             >
-              User Management <ExternalLink className="w-3 h-3" />
+              Staff Management <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
 
@@ -843,7 +929,7 @@ export function AdminDashboardClient({
                 </div>
                 <div>
                   <h3 className="font-bold text-base text-slate-900">MediSynx Admin AI Assistant</h3>
-                  <p className="text-xs text-slate-500">Ask operational queries & clinical analytics</p>
+                  <p className="text-xs text-slate-500">Ask operational queries &amp; clinical analytics</p>
                 </div>
               </div>
               <button

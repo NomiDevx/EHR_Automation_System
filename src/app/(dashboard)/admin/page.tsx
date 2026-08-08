@@ -8,8 +8,6 @@ import { AdminDashboardClient } from './AdminDashboardClient';
 export const metadata: Metadata = { title: 'Admin Dashboard | MediSynx EHR' };
 
 async function getAdminStats(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const adminSupabase = createAdminClient();
-
   const [
     liveData,
     { data: recentLogs },
@@ -24,12 +22,14 @@ async function getAdminStats(supabase: Awaited<ReturnType<typeof createClient>>)
     totalPatients: liveData?.patientsCount ?? 540,
     totalStaff: liveData?.doctorsCount ?? 260,
     totalVisitors: liveData?.totalVisitorsCount ?? 5568,
+    upcomingApptsCount: liveData?.upcomingApptsCount ?? 479,
     todayAppointments: 0,
     pendingInvoices: 0,
     recentLogs: (recentLogs ?? []) as AuditLog[],
     recentUsers: (recentUsers ?? []) as Profile[],
     upcomingAppointments: liveData?.appointments ?? [],
     demographics: liveData?.demographics,
+    bedsInfo: liveData?.bedsInfo,
     weeklyChartData: liveData?.weeklyChartData,
   };
 }
@@ -56,6 +56,8 @@ export default async function AdminDashboard() {
       upcomingAppointments={stats.upcomingAppointments}
       webhookUrl={webhookUrl}
       demographics={stats.demographics}
+      bedsInfo={stats.bedsInfo}
+      upcomingApptsCount={stats.upcomingApptsCount}
       weeklyChartData={stats.weeklyChartData}
     />
   );

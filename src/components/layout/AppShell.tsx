@@ -19,10 +19,13 @@ import { Avatar } from '@/components/ui';
 const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.ElementType }[]> = {
   admin: [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/users', label: 'User Management', icon: Users },
-    { href: '/admin/audit-logs', label: 'Audit Logs', icon: Shield },
-    { href: '/schedule', label: 'Schedule', icon: Calendar },
-    { href: '/assistant', label: 'Booking Assistant', icon: Bot },
+    { href: '/assistant', label: 'AI Insights', icon: Sparkles },
+    { href: '/clinical/patients', label: 'Patients', icon: Users },
+    { href: '/schedule', label: 'Appointments', icon: Calendar },
+    { href: '/clinical/notes', label: 'Records', icon: FileText },
+    { href: '/admin/audit-logs', label: 'Alerts & Logs', icon: Shield },
+    { href: '/admin/users', label: 'Staff Management', icon: Users },
+    { href: '/reception/billing', label: 'Subscription & Usage', icon: Receipt },
   ],
   doctor: [
     { href: '/clinical/dashboard', label: 'Dashboard', icon: LayoutDashboard },
