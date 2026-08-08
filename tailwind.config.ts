@@ -9,6 +9,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '475px',  // Extra-small phones (below sm:640px)
+      },
       fontFamily: {
         cambria: ["Cambria", "Georgia", "CambriaMath", "serif"],
         display: ["Cambria", "Georgia", "CambriaMath", "serif"],

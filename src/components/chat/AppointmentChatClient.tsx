@@ -124,7 +124,7 @@ export function AppointmentChatClient() {
           setSessionId(activeSessionId);
         }
 
-        const response = await sendAgentMessage(cleanText, activeSessionId, currentUserId);
+        const response = await sendAgentMessage(activeSessionId, cleanText, currentUserId);
 
         const assistantMsg: ChatMessage = {
           id: `assistant-${Date.now()}`,
@@ -254,11 +254,11 @@ export function AppointmentChatClient() {
   }
 
   return (
-    <div className="relative max-w-6xl mx-auto w-full">
+    <div className="relative max-w-6xl mx-auto w-full pb-safe">
       <div
         className={cn(
-          'flex flex-col h-[calc(100vh-210px)] min-h-[580px]',
-          'bg-white border border-[#E2E8F0] rounded-3xl overflow-hidden shadow-xl',
+          'flex flex-col chat-viewport',
+          'bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl',
         )}
         data-large-font={largeFont ? 'true' : 'false'}
         data-high-contrast={highContrast ? 'true' : 'false'}

@@ -127,36 +127,35 @@ async function planTools(history: SafeMsg[], state: AgentState): Promise<ToolPla
   const groq = getGroq();
   const patientCtx = state.patient_id
     ? `Patient identified: ${state.patient_name}, patient_id=${state.patient_id}`
-    : 'Patient NOT identified (no patient_id). Must call lookupPatient before any personal data query.';
+    : 'Patient NOT identified in system yet.';
 
-  const planPrompt = `You are a medical clinic assistant that decides which tools to call.
-Given the conversation, return a JSON plan of tools to call to answer the patient's latest message.
+  const planPrompt = `You are a medical clinic assistant planning tool calls.
 
-SESSION: ${patientCtx}
+SESSION CONTEXT: ${patientCtx}
 
 AVAILABLE TOOLS:
-- lookupPatient — get patient info (call first if patient_id unknown and personal data needed)
+- lookupPatient — get patient info by user_id
 - getClinicInfo — clinic hours, phone, address, services
-- listDoctors — all doctors with their IDs and specialties
+- listDoctors — all available doctors with IDs and specialties
 - getUpcomingAppointments — patient's scheduled upcoming visits
 - getAvailableSlots — args: {doctor_id?} — open time slots
-- bookAppointment — args: {doctor_id, slot_iso, appointment_type} — book after confirmed
-- cancelAppointment — args: {appointment_id?} — cancel after confirmed by patient
-- rescheduleAppointment — args: {appointment_id, new_slot_iso} — after patient picks new slot
-- getLabResults — patient's lab test results
-- getMedications — patient's medications
-- getPatientHistory — patient's medical history
+- bookAppointment — args: {doctor_id, slot_iso, appointment_type} — ONLY call after user explicitly confirms the final booking summary!
+- cancelAppointment — args: {appointment_id?} — cancel after user confirms
+- rescheduleAppointment — args: {appointment_id, new_slot_iso} — after user picks slot
+- getLabResults — lab results
+- getMedications — medications
+- getPatientHistory — medical history
 
-BOOKING FLOW: listDoctors first → getAvailableSlots → patient picks → bookAppointment
-RESCHEDULE FLOW: getUpcomingAppointments first → getAvailableSlots → patient picks → rescheduleAppointment
-CANCEL FLOW: getUpcomingAppointments first → confirm → cancelAppointment
-
-If you need patient confirmation before executing a destructive action (book/cancel/reschedule), set needs_clarification=true.
+TOOL SELECTION RULES:
+1. If user says they want to book an appointment:
+   - Call "lookupPatient" (if user_id present and patient not identified) and "listDoctors".
+2. If user selected or specified a doctor:
+   - Call "getAvailableSlots" with { doctor_id }.
+3. DO NOT call "bookAppointment" unless the user has explicitly agreed to the final booking details (e.g. "Yes, confirm booking").
 
 Return ONLY valid JSON (no markdown):
 {"tools":[{"name":"toolName","args":{}}],"needs_clarification":false,"clarification_message":""}`;
 
-  // Only include last 6 messages to keep context tight
   const recentHistory = history.slice(-6);
 
   try {
@@ -174,8 +173,8 @@ Return ONLY valid JSON (no markdown):
     const parsed = JSON.parse(raw);
     return {
       tools: Array.isArray(parsed.tools) ? parsed.tools : [],
-      needs_clarification: Boolean(parsed.needs_clarification),
-      clarification_message: (parsed.clarification_message || '').trim(),
+      needs_clarification: false,
+      clarification_message: '',
     };
   } catch (err: any) {
     console.error('[planTools] Error:', err.message);
@@ -190,24 +189,53 @@ async function generateReply(
   state: AgentState,
 ): Promise<AgentTurnResult> {
   const groq = getGroq();
-  const patientLine = state.patient_name ? `Patient: ${state.patient_name}` : '';
+  const patientLine = state.patient_name ? `Log-in Patient: ${state.patient_name}` : '';
 
-  // Inject tool results into the system prompt — NO extra user messages added
   const toolSection = toolResultsContext
-    ? `\n\nDATA FROM CLINIC SYSTEMS (answer using ONLY this data, do not add anything else):\n${toolResultsContext}`
+    ? `\n\nDATA FROM CLINIC SYSTEMS:\n${toolResultsContext}`
     : '';
 
   const systemContent = `You are Sarah, a warm AI medical receptionist for ${CLINIC_NAME}.
 ${patientLine}
-RULES: Only use data from "DATA FROM CLINIC SYSTEMS". NEVER invent information. If no data provided, say so clearly.
-Use bullet points for lists. Be warm and concise. Never give medical advice.
-CLINIC: ${CLINIC_NAME} | ${CLINIC_PHONE} | ${CLINIC_HOURS}${toolSection}
 
-You MUST respond with a JSON object (no markdown, no explanation):
-{"reply":"your warm message to the patient","options":["followup1","followup2"]}
-options = 2-4 natural next actions the patient can take, or empty array.`;
+MANDATORY APPOINTMENT BOOKING CONVERSATION FLOW:
+Follow these steps IN ORDER when helping a patient book an appointment:
 
-  // Only the most recent messages (last 8) to keep history tight
+STEP 1: ASK WHO THE APPOINTMENT IS FOR
+When user first asks to book an appointment (e.g., "book an appointment", "I need to see a doctor"):
+- Ask warmly: "Who are you booking this appointment for?"
+- Options chips: ["For myself", "For someone else"]
+
+STEP 2: IF FOR SOMEONE ELSE
+- If user says "For someone else", ask: "Could you please provide the patient's full name and date of birth?"
+- Options chips: ["Provide details"]
+
+STEP 3: CHOOSE DOCTOR / SPECIALIST
+- Once patient is clear (myself or someone else named), show the doctors from DATA FROM CLINIC SYSTEMS.
+- Ask: "Which doctor or specialty would you like to visit?"
+- Options chips: Provide exact doctor names from listDoctors data (e.g., ["Dr. Sarah Smith", "Dr. Robert Johnson"]).
+
+STEP 4: CHOOSE DATE & TIME SLOT
+- Once doctor is chosen, present the open time slots from DATA FROM CLINIC SYSTEMS clearly.
+- Ask: "Here are available slots for [Doctor Name]. Which date and time works best for you?"
+- Options chips: Provide clear time choices from getAvailableSlots (e.g., ["Monday 9:00 AM", "Monday 2:00 PM"]).
+
+STEP 5: CONFIRMATION BEFORE BOOKING
+- When user picks a slot, summarize the details:
+  • Patient: [Name]
+  • Doctor: [Doctor Name]
+  • Date & Time: [Selected Time]
+- Ask: "Would you like me to confirm and book this appointment for you?"
+- Options chips: ["Yes, confirm booking", "Choose different doctor", "Cancel"]
+
+STEP 6: FINAL BOOKING
+- Only after user clicks/says "Yes, confirm booking", execute the booking and confirm with a friendly thank-you message and confirmation code.
+
+CLINIC INFO: ${CLINIC_NAME} | ${CLINIC_PHONE} | ${CLINIC_HOURS}${toolSection}
+
+ALWAYS RETURN VALID JSON strictly matching:
+{"reply":"your clear message","options":["option 1","option 2"]}`;
+
   const recentHistory = history.slice(-8);
 
   try {
@@ -218,14 +246,14 @@ options = 2-4 natural next actions the patient can take, or empty array.`;
         ...recentHistory,
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.5,
+      temperature: 0.3,
       max_tokens: 900,
     });
     const raw = (resp.choices[0]?.message?.content || '{}').trim();
     const parsed = JSON.parse(raw);
     const reply = (parsed.reply || '').trim();
     const options: string[] = Array.isArray(parsed.options) ? parsed.options.filter(Boolean) : [];
-    if (reply) return { reply, options: options.length ? options : FALLBACK_OPTIONS };
+    if (reply) return { reply, options: options.length ? options : ['For myself', 'For someone else'] };
   } catch (err: any) {
     console.error('[generateReply] Error:', err.message, '| status:', err.status);
   }
@@ -244,13 +272,6 @@ export async function runAgent(
   // 2. Plan which tools to call
   const plan = await planTools(history, state);
 
-  // 3. If needs patient confirmation first, return the clarification question
-  if (plan.needs_clarification && plan.clarification_message) {
-    return {
-      reply: plan.clarification_message,
-      options: ['Yes, go ahead', 'No, cancel', 'Choose different time'],
-    };
-  }
 
   // 4. Execute all planned tools
   const toolResultParts: string[] = [];

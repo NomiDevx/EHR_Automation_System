@@ -70,30 +70,30 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
           </div>
         )}
 
-        {/* Welcome Hero Banner — Navy to Cyan Gradient */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-[#0891B2]/30">
-          <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-2xl">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-[#22D3EE] backdrop-blur-sm">
-                <Sparkles className="w-3.5 h-3.5" /> Patient Portal Account Active
-              </span>
-              <h1 className="font-cambria text-3xl sm:text-4xl font-bold leading-tight">
-                Welcome, {profile?.first_name} {profile?.last_name}!
-              </h1>
-              <p className="text-sm text-slate-200 leading-relaxed font-normal">
-                Your portal account is active. Complete your clinical onboarding checklist below to initialize your medical record and access lab results, appointments, and care team messaging.
-              </p>
-            </div>
-
-            <Link
-              href="/#booking-section"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md shrink-0"
-            >
-              Book Consult <ArrowRight className="w-4 h-4 text-[#0891B2]" />
-            </Link>
+        {/* Patient Hero Banner — Navy to Cyan Gradient */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xl border border-[#0891B2]/30">
+        <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-[#22D3EE] backdrop-blur-sm">
+              <Sparkles className="w-3.5 h-3.5" /> Patient Portal Account Active
+            </span>
+            <h1 className="font-cambria text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
+              Welcome, {profile?.first_name} {profile?.last_name}!
+            </h1>
+            <p className="text-sm text-slate-200 leading-relaxed font-normal">
+              Your portal account is active. Complete your clinical onboarding checklist below to initialize your medical record and access lab results, appointments, and care team messaging.
+            </p>
           </div>
+
+          <Link
+            href="/#booking-section"
+            className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md shrink-0"
+          >
+            Book Consult <ArrowRight className="w-4 h-4 text-[#0891B2]" />
+          </Link>
         </div>
+      </div>
 
         {/* Core Onboarding & Center Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -293,29 +293,29 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
       )}
 
       {/* Patient Hero Banner — Navy to Cyan Gradient */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-3xl p-8 sm:p-10 shadow-xl border border-[#0891B2]/30">
+      <div className="relative overflow-hidden bg-gradient-to-r from-[#0B2A55] via-[#0F766E] to-[#0891B2] text-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xl border border-[#0891B2]/30">
         <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-3">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-[#22D3EE] backdrop-blur-sm">
               <ShieldCheck className="w-3.5 h-3.5 text-[#22D3EE]" /> Verified Patient Record
             </span>
-            <h1 className="font-cambria text-3xl sm:text-4xl font-bold leading-tight">
+            <h1 className="font-cambria text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
               Welcome back, {patient.first_name} {patient.last_name}!
             </h1>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-200">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-slate-200">
               <span className="bg-white/10 px-3 py-1 rounded-lg border border-white/20 font-mono font-bold">
                 MRN: {patient.mrn ?? '—'}
               </span>
               <span>DOB: {formatDate(patient.date_of_birth)}</span>
-              <span>Gender: {patient.gender ? patient.gender.toUpperCase() : 'N/A'}</span>
+              <span className="hidden xs:inline">Gender: {patient.gender ? patient.gender.toUpperCase() : 'N/A'}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto">
             <Link
               href="/#booking-section"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md"
+              className="inline-flex items-center justify-center gap-2 flex-1 sm:flex-none px-5 py-3 rounded-xl bg-white text-[#0B2A55] font-bold text-xs hover:bg-[#F8FAFC] transition-all shadow-md"
             >
               <Calendar className="w-4 h-4 text-[#0891B2]" /> Book Appointment
             </Link>
@@ -324,7 +324,7 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
       </div>
 
       {/* Quick Navigation Tiles Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {[
           { href: '/portal/appointments', label: 'Appointments', icon: Calendar, count: upcomingAppts?.length ?? 0, color: 'text-[#0891B2]', bg: 'bg-white border-[#E2E8F0] hover:border-[#0891B2]' },
           { href: '/portal/labs', label: 'Lab Results', icon: FlaskConical, count: recentLabs?.filter((l: any) => l.flag !== 'normal').length ?? 0, color: 'text-[#4CAF50]', bg: 'bg-white border-[#E2E8F0] hover:border-[#4CAF50]' },
@@ -335,30 +335,30 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
             key={href}
             href={href}
             className={cn(
-              'p-5 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md flex flex-col justify-between group',
+              'p-3 sm:p-5 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md flex flex-col justify-between group',
               bg
             )}
           >
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Icon className={cn('w-5 h-5', color)} />
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Icon className={cn('w-4 h-4 sm:w-5 sm:h-5', color)} />
               </div>
               {count > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#0891B2]/10 text-[#0891B2]">
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#0891B2]/10 text-[#0891B2]">
                   {count}
                 </span>
               )}
             </div>
             <div>
-              <p className="font-cambria font-bold text-sm text-[#0B2A55]">{label}</p>
-              <p className="text-[11px] text-[#94A3B8] mt-0.5">Explore {label.toLowerCase()}</p>
+              <p className="font-cambria font-bold text-xs sm:text-sm text-[#0B2A55]">{label}</p>
+              <p className="text-[10px] text-[#94A3B8] mt-0.5 hidden sm:block">Explore {label.toLowerCase()}</p>
             </div>
           </Link>
         ))}
       </div>
 
       {/* Main Grid: Schedule & Lab Results */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-8">
 
         {/* Upcoming Appointments Card */}
         <div className="bg-white border border-[#E2E8F0] rounded-3xl p-7 shadow-sm space-y-5">
@@ -465,7 +465,7 @@ export default async function PortalPage({ searchParams }: PortalPageProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-8">
           {/* Patient Details */}
           <div className="space-y-4 bg-[#F8FAFC] border border-[#F1F5F9] rounded-2xl p-6">
             <h3 className="font-cambria font-bold text-sm text-[#0B2A55] border-b border-[#E2E8F0] pb-2">

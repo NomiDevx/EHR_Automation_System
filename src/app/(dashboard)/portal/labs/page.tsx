@@ -63,24 +63,24 @@ export default async function PortalLabsPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto -mx-2 px-2">
+            <table className="w-full text-left text-xs min-w-[480px]">
               <thead>
                 <tr className="border-b border-[#E2E8F0] text-[#94A3B8] font-bold uppercase tracking-wider">
-                  <th className="pb-3">Test Component</th>
-                  <th className="pb-3">Result Value</th>
-                  <th className="pb-3">Reference Range</th>
+                  <th className="pb-3 pr-4">Test Component</th>
+                  <th className="pb-3 pr-4">Result Value</th>
+                  <th className="pb-3 pr-4">Reference Range</th>
                   <th className="pb-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F5F9]">
                 {(order.results as any[]).map((r: any) => (
                   <tr key={r.id} className="hover:bg-[#F8FAFC]">
-                    <td className="py-3.5 font-bold text-[#0F172A]">{r.component_name}</td>
-                    <td className={cn('py-3.5 font-mono font-bold text-sm', LAB_FLAG_COLORS[r.flag as keyof typeof LAB_FLAG_COLORS])}>
+                    <td className="py-3.5 pr-4 font-bold text-[#0F172A]">{r.component_name}</td>
+                    <td className={cn('py-3.5 pr-4 font-mono font-bold text-sm', LAB_FLAG_COLORS[r.flag as keyof typeof LAB_FLAG_COLORS])}>
                       {r.value} {r.unit}
                     </td>
-                    <td className="py-3.5 text-[#475569]">{r.reference_low} – {r.reference_high} {r.unit}</td>
+                    <td className="py-3.5 pr-4 text-[#475569]">{r.reference_low} – {r.reference_high} {r.unit}</td>
                     <td className="py-3.5">
                       <span className={cn('px-2.5 py-1 rounded-full text-[11px] font-bold border uppercase', r.flag === 'normal' ? 'bg-[#16A34A]/10 text-[#16A34A] border-[#16A34A]/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20')}>
                         {r.flag === 'normal' ? 'Normal' : r.flag.replace(/_/g, ' ')}

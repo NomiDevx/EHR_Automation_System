@@ -130,20 +130,20 @@ export function PortalRecordsClient({ patientId, initialVitals, initialAllergies
   return (
     <div className="space-y-6">
       {/* Navigation tabs */}
-      <div className="flex items-center gap-3 bg-white border border-[#E2E8F0] p-2 rounded-2xl shadow-sm">
+      <div className="flex items-center gap-2 bg-white border border-[#E2E8F0] p-2 rounded-2xl shadow-sm">
         <button
           onClick={() => setActiveTab('vitals')}
-          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === 'vitals'
               ? 'bg-[#0891B2] text-white shadow-md'
               : 'bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]'
           }`}
         >
-          <Activity className="w-4 h-4" /> Vitals & Measurements
+          <Activity className="w-4 h-4" /> <span className="xs:hidden">Vitals</span><span className="hidden xs:inline">Vitals &amp; Measurements</span>
         </button>
         <button
           onClick={() => setActiveTab('allergies')}
-          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center sm:justify-start gap-2 ${
             activeTab === 'allergies'
               ? 'bg-[#0891B2] text-white shadow-md'
               : 'bg-[#F8FAFC] text-[#475569] hover:bg-[#F1F5F9]'
@@ -176,49 +176,49 @@ export function PortalRecordsClient({ patientId, initialVitals, initialAllergies
               <p className="text-xs text-[#475569]">No vitals on record yet. Log your first measurement above.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-[#E2E8F0]">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto rounded-2xl border border-[#E2E8F0] -mx-2 px-2">
+              <table className="w-full text-left border-collapse min-w-[640px]">
                 <thead>
                   <tr className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#0B2A55] text-xs font-bold uppercase tracking-wider">
-                    <th className="px-5 py-4">Date & Time</th>
-                    <th className="px-5 py-4">Blood Pressure</th>
-                    <th className="px-5 py-4">Heart Rate</th>
-                    <th className="px-5 py-4">Temp</th>
-                    <th className="px-5 py-4">Weight</th>
-                    <th className="px-5 py-4">Height</th>
-                    <th className="px-5 py-4">BMI</th>
-                    <th className="px-5 py-4">Pain Scale</th>
-                    <th className="px-5 py-4">Notes</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Date & Time</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Blood Pressure</th>
+                    <th className="px-4 py-4 whitespace-nowrap">Heart Rate</th>
+                    <th className="px-4 py-4">Temp</th>
+                    <th className="px-4 py-4">Weight</th>
+                    <th className="px-4 py-4">Height</th>
+                    <th className="px-4 py-4">BMI</th>
+                    <th className="px-4 py-4">Pain</th>
+                    <th className="px-4 py-4">Notes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F1F5F9] text-xs">
                   {initialVitals.map((v) => (
                     <tr key={v.id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="px-5 py-4 font-bold text-[#0F172A] whitespace-nowrap">
+                      <td className="px-4 py-4 font-bold text-[#0F172A] whitespace-nowrap">
                         {formatDate(v.recorded_at, 'MMM d, yyyy h:mm a')}
                       </td>
-                      <td className="px-5 py-4 whitespace-nowrap font-mono font-semibold text-[#0891B2]">
+                      <td className="px-4 py-4 whitespace-nowrap font-mono font-semibold text-[#0891B2]">
                         {v.systolic_bp && v.diastolic_bp ? `${v.systolic_bp}/${v.diastolic_bp} mmHg` : '—'}
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                      <td className="px-4 py-4 font-medium text-[#0F172A]">
                         {v.heart_rate ? `${v.heart_rate} bpm` : '—'}
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                      <td className="px-4 py-4 font-medium text-[#0F172A]">
                         {v.temperature_f ? `${v.temperature_f} °F` : '—'}
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                      <td className="px-4 py-4 font-medium text-[#0F172A]">
                         {v.weight_lbs ? `${v.weight_lbs} lbs` : '—'}
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#0F172A]">
+                      <td className="px-4 py-4 font-medium text-[#0F172A]">
                         {v.height_in ? `${v.height_in} in` : '—'}
                       </td>
-                      <td className="px-5 py-4 font-bold text-[#0891B2]">
+                      <td className="px-4 py-4 font-bold text-[#0891B2]">
                         {v.bmi ? v.bmi : '—'}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-4">
                         {v.pain_scale !== null ? (
                           <span className={cn(
-                            'px-2.5 py-1 rounded-full text-[11px] font-bold uppercase border',
+                            'px-2 py-1 rounded-full text-[11px] font-bold uppercase border',
                             v.pain_scale >= 7 ? 'bg-red-500/10 text-red-600 border-red-500/20' :
                             v.pain_scale >= 4 ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                           )}>
@@ -226,7 +226,7 @@ export function PortalRecordsClient({ patientId, initialVitals, initialAllergies
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="px-5 py-4 max-w-[200px] truncate text-[#475569]" title={v.notes}>
+                      <td className="px-4 py-4 max-w-[120px] truncate text-[#475569]" title={v.notes}>
                         {v.notes || '—'}
                       </td>
                     </tr>

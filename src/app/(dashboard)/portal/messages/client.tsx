@@ -95,24 +95,24 @@ export function MessagesClient({ messages, currentUserId, providers, patientId, 
         {messages.map((msg) => {
           const isOutbound = msg.sender_id === currentUserId;
           return (
-            <div key={msg.id} className={cn('card', isOutbound ? 'border-blue-500/20 bg-blue-500/5' : '')}>
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  {msg.subject && <p className="text-sm font-semibold text-[hsl(var(--foreground))]">{msg.subject}</p>}
+        <div key={msg.id} className={cn('card', isOutbound ? 'border-blue-500/20 bg-blue-500/5' : '')}>
+              <div className="flex flex-col xs:flex-row xs:items-start xs:justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  {msg.subject && <p className="text-sm font-semibold text-[hsl(var(--foreground))] truncate">{msg.subject}</p>}
                   <p className="text-xs text-[hsl(var(--muted-foreground))]">
                     {isOutbound
                       ? `To: Dr. ${msg.recipient?.last_name}`
                       : `From: Dr. ${msg.sender?.last_name}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {!isOutbound && !msg.read_at && (
                     <span className="badge bg-blue-500/20 text-blue-300 border-blue-500/30 text-xs">Unread</span>
                   )}
                   <span className="text-xs text-[hsl(var(--muted-foreground))]">{formatRelative(msg.created_at)}</span>
                 </div>
               </div>
-              <p className="text-sm text-[hsl(var(--foreground))] whitespace-pre-wrap">{msg.body}</p>
+              <p className="text-sm text-[hsl(var(--foreground))] whitespace-pre-wrap break-words">{msg.body}</p>
             </div>
           );
         })}

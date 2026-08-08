@@ -15,9 +15,7 @@ import {
   Menu, X, Bot, UserCircle, Sparkles, ExternalLink
 } from 'lucide-react';
 import { Avatar } from '@/components/ui';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
-// ─── Nav item definitions per role ──────────────────────────────────────────
 const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.ElementType }[]> = {
   admin: [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -82,10 +80,15 @@ export function AppShell({ profile, children }: AppShellProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    setIsNavigating(false);
+  }, [pathname]);
 
   const navItems = NAV_ITEMS[profile.role] ?? [];
 
@@ -252,7 +255,10 @@ export function AppShell({ profile, children }: AppShellProps) {
               <Link
                 key={href}
                 href={href}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {
+                  setMobileOpen(false);
+                  setIsNavigating(true);
+                }}
                 className={cn(
                   'flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-xs font-semibold transition-all duration-200 group relative',
                   active
@@ -341,7 +347,10 @@ export function AppShell({ profile, children }: AppShellProps) {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
         {/* ── HIGHLY PROFESSIONAL PORTAL TOP HEADER ────────────────── */}
-        <header className="h-16 flex items-center justify-between px-4 lg:px-8 border-b border-[#E2E8F0] bg-white shrink-0 shadow-sm z-20">
+        <header className="relative h-16 flex items-center justify-between px-4 lg:px-8 border-b border-[#E2E8F0] bg-white shrink-0 shadow-sm z-20 overflow-hidden">
+          {isNavigating && (
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#0B2A55] via-[#0891B2] to-[#22D3EE] animate-pulse z-30" />
+          )}
           <div className="flex items-center gap-4">
             {/* Mobile drawer button */}
             <button
@@ -354,12 +363,12 @@ export function AppShell({ profile, children }: AppShellProps) {
             </button>
 
             {/* Breadcrumb Eyebrow & Page Title */}
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#0891B2] flex items-center gap-1.5">
+            <div className="min-w-0">
+              <span className="hidden sm:flex text-[10px] font-bold uppercase tracking-widest text-[#0891B2] items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#0891B2] animate-pulse" />
                 MediSynx EHR · {ROLE_LABELS[profile.role]} Portal
               </span>
-              <h1 className="font-cambria text-lg sm:text-xl font-bold text-[#0B2A55] leading-none mt-0.5">
+              <h1 className="font-cambria text-base sm:text-lg lg:text-xl font-bold text-[#0B2A55] leading-none mt-0.5 truncate max-w-[160px] sm:max-w-none">
                 {activeNavLabel}
               </h1>
             </div>
@@ -390,9 +399,6 @@ export function AppShell({ profile, children }: AppShellProps) {
               )}
             </button>
 
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
             {/* User Profile Info Pill */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-[#E2E8F0]">
               <Avatar
@@ -415,8 +421,10 @@ export function AppShell({ profile, children }: AppShellProps) {
         </header>
 
         {/* Page Content Viewport */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 animate-fade-in bg-[#F8FAFC]">
-          {children}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-8 animate-fade-in bg-[#F8FAFC] overflow-x-hidden">
+          <div className="max-w-[100vw] lg:max-w-none">
+            {children}
+          </div>
         </main>
       </div>
 
@@ -471,8 +479,8 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       {/* ── Session Timeout Warning Toast ── */}
       {showTimeoutWarning && (
-        <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
-          <div className="bg-[#0B2A55] text-white border border-[#0891B2] p-4 rounded-2xl shadow-xl flex items-start gap-3 max-w-sm">
+        <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-4 sm:w-auto z-50 animate-slide-up">
+          <div className="bg-[#0B2A55] text-white border border-[#0891B2] p-4 rounded-2xl shadow-xl flex items-start gap-3 sm:max-w-sm w-full">
             <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-xs font-bold text-white">Session Expiring Soon</p>

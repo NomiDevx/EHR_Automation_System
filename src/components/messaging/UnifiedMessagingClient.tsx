@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { formatRelative, formatDate } from '@/lib/utils';
-import { MessageSquare, Send, Search, User, CheckCheck, Sparkles, Clock, ChevronRight, Plus } from 'lucide-react';
+import { formatRelative } from '@/lib/utils';
+import { MessageSquare, Send, Search, CheckCheck, ArrowLeft, Clock, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -41,9 +41,16 @@ export function UnifiedMessagingClient({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Mobile navigation state
+  const [showMobileThread, setShowMobileThread] = useState<boolean>(
+    Boolean(defaultRecipientId)
+  );
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
   const router = useRouter();
 
+  // Sync initial props
   useEffect(() => {
     setMessages(initialMessages);
   }, [initialMessages]);
@@ -51,26 +58,89 @@ export function UnifiedMessagingClient({
   useEffect(() => {
     if (defaultRecipientId) {
       setSelectedContactId(defaultRecipientId);
+      setShowMobileThread(true);
     }
   }, [defaultRecipientId]);
 
-  // Filter contacts by search query
-  const filteredContacts = useMemo(() => {
-    return contacts.filter((c) => {
-      const q = searchQuery.toLowerCase();
-      return (
-        c.name.toLowerCase().includes(q) ||
-        (c.subTitle && c.subTitle.toLowerCase().includes(q))
-      );
+  // Real-time message subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('unified_realtime_messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload: any) => {
+          const newMsg = payload.new;
+          if (newMsg.sender_id === currentUserId || newMsg.recipient_id === currentUserId) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === newMsg.id)) return prev;
+              return [newMsg, ...prev];
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload: any) => {
+          const updatedMsg = payload.new;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId, supabase]);
+
+  // Map contact IDs to their most recent message timestamp for sorting
+  const contactLatestTimestamps = useMemo(() => {
+    const map: Record<string, number> = {};
+    messages.forEach((m) => {
+      const otherId = m.sender_id === currentUserId ? m.recipient_id : m.sender_id;
+      const time = new Date(m.created_at).getTime();
+      if (!map[otherId] || time > map[otherId]) {
+        map[otherId] = time;
+      }
     });
-  }, [contacts, searchQuery]);
+    return map;
+  }, [messages, currentUserId]);
+
+  // Filter & sort contacts based on search query & latest message time (most recent first)
+  const filteredContacts = useMemo(() => {
+    return [...contacts]
+      .filter((c) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          c.name.toLowerCase().includes(q) ||
+          (c.subTitle && c.subTitle.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        const timeA = contactLatestTimestamps[a.id] || 0;
+        const timeB = contactLatestTimestamps[b.id] || 0;
+        if (timeA !== timeB) return timeB - timeA;
+        return a.name.localeCompare(b.name);
+      });
+  }, [contacts, searchQuery, contactLatestTimestamps]);
 
   // Get active contact
   const selectedContact = useMemo(() => {
     return contacts.find((c) => c.id === selectedContactId) || contacts[0];
   }, [contacts, selectedContactId]);
 
-  // Get messages thread between currentUserId and selectedContactId
+  // Get messages thread between currentUserId and selectedContactId sorted chronologically (oldest top, newest bottom)
   const currentThread = useMemo(() => {
     if (!selectedContactId) return [];
     return messages
@@ -81,6 +151,11 @@ export function UnifiedMessagingClient({
       )
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   }, [messages, currentUserId, selectedContactId]);
+
+  // Auto-scroll to bottom of thread messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentThread]);
 
   // Mark unread messages in thread as read
   useEffect(() => {
@@ -104,6 +179,11 @@ export function UnifiedMessagingClient({
         });
     }
   }, [selectedContactId, currentThread, currentUserId, supabase]);
+
+  const handleSelectContact = (contactId: string) => {
+    setSelectedContactId(contactId);
+    setShowMobileThread(true);
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,7 +226,12 @@ export function UnifiedMessagingClient({
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-white border border-[#E2E8F0] rounded-3xl p-4 sm:p-6 shadow-xl min-h-[600px] h-[calc(100vh-220px)]">
 
       {/* ── LEFT COLUMN: CONTACTS LIST & SEARCH ───────────────────── */}
-      <div className="lg:col-span-4 border-r border-[#E2E8F0] pr-0 lg:pr-6 flex flex-col justify-between space-y-4 h-full overflow-hidden">
+      <div
+        className={cn(
+          'lg:col-span-4 border-r border-[#E2E8F0] pr-0 lg:pr-6 flex-col justify-between space-y-4 h-full overflow-hidden',
+          showMobileThread ? 'hidden lg:flex' : 'flex'
+        )}
+      >
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">
@@ -170,7 +255,7 @@ export function UnifiedMessagingClient({
           </div>
         </div>
 
-        {/* Contacts Scrollable List */}
+        {/* Contacts Scrollable List (Sorted by Time) */}
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
           {filteredContacts.map((contact) => {
             const isSelected = selectedContactId === contact.id;
@@ -195,7 +280,7 @@ export function UnifiedMessagingClient({
               <button
                 key={contact.id}
                 type="button"
-                onClick={() => setSelectedContactId(contact.id)}
+                onClick={() => handleSelectContact(contact.id)}
                 className={`w-full p-3.5 rounded-2xl text-left transition-all duration-200 flex items-start gap-3 border ${
                   isSelected
                     ? 'bg-[#0891B2]/10 border-[#0891B2] shadow-sm ring-1 ring-[#0891B2]/30'
@@ -250,12 +335,27 @@ export function UnifiedMessagingClient({
       </div>
 
       {/* ── RIGHT COLUMN: CHAT CONVERSATION THREAD ───────────────── */}
-      <div className="lg:col-span-8 flex flex-col justify-between h-full overflow-hidden space-y-4">
+      <div
+        className={cn(
+          'lg:col-span-8 flex-col justify-between h-full overflow-hidden space-y-4',
+          !showMobileThread ? 'hidden lg:flex' : 'flex'
+        )}
+      >
         {selectedContact ? (
           <>
             {/* Contact Top Header Bar */}
-            <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-4">
+            <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
+                {/* Mobile Back Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowMobileThread(false)}
+                  className="lg:hidden p-2 rounded-xl text-[#0B2A55] hover:bg-[#E2E8F0] transition-colors border border-[#CBD5E1]"
+                  title="Back to contacts list"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+
                 <div className="w-10 h-10 rounded-xl bg-[#0B2A55] text-white flex items-center justify-center font-bold text-xs shrink-0">
                   {selectedContact.avatar_url ? (
                     <img src={selectedContact.avatar_url} alt={selectedContact.name} className="w-full h-full object-cover rounded-xl" />
@@ -273,7 +373,7 @@ export function UnifiedMessagingClient({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#16A34A] bg-[#16A34A]/10 px-3 py-1 rounded-full border border-[#16A34A]/20">
+              <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-[#16A34A] bg-[#16A34A]/10 px-3 py-1 rounded-full border border-[#16A34A]/20">
                 <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" />
                 Active Messaging Thread
               </div>
@@ -326,6 +426,7 @@ export function UnifiedMessagingClient({
                   </p>
                 </div>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Bar */}
@@ -353,9 +454,18 @@ export function UnifiedMessagingClient({
                 <button
                   type="submit"
                   disabled={sending || !inputText.trim()}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-xs font-bold hover:opacity-95 shadow-md flex items-center gap-2 disabled:opacity-50 shrink-0"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-xs font-bold hover:opacity-95 shadow-md flex items-center gap-2 disabled:opacity-50 shrink-0 active:scale-95 transition-all"
                 >
-                  {sending ? 'Sending…' : <><Send className="w-4 h-4" /> Send</>}
+                  {sending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" /> Send
+                    </>
+                  )}
                 </button>
               </div>
 

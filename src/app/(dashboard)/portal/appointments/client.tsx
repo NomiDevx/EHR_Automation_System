@@ -287,10 +287,10 @@ export function PortalAppointmentsClient({
               {past.map((appt) => (
                 <div
                   key={appt.id}
-                  className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9] opacity-80"
+                  className="flex flex-col xs:flex-row xs:items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9] opacity-80 gap-3"
                 >
                   <div className="flex items-center gap-3.5">
-                    <Clock className="w-4 h-4 text-[#94A3B8]" />
+                    <Clock className="w-4 h-4 text-[#94A3B8] shrink-0" />
                     <div>
                       <p className="font-cambria font-bold text-sm text-[#0B2A55]">
                         Dr. {appt.provider?.first_name} {appt.provider?.last_name} ({appt.provider?.specialty || 'GP'})
@@ -300,7 +300,7 @@ export function PortalAppointmentsClient({
                       </p>
                     </div>
                   </div>
-                  <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border', APPOINTMENT_STATUS_COLORS[appt.status])}>
+                  <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border self-start xs:self-center', APPOINTMENT_STATUS_COLORS[appt.status])}>
                     {humanizeLabel(appt.status)}
                   </span>
                 </div>
@@ -312,7 +312,7 @@ export function PortalAppointmentsClient({
 
       {/* ── TAB 3: BOOK NEW APPOINTMENT FORM ────────────────────────── */}
       {activeTab === 'book' && (
-        <form onSubmit={handleBook} className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-10 shadow-lg space-y-8 animate-fade-in">
+        <form onSubmit={handleBook} className="bg-white border border-[#E2E8F0] rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 shadow-lg space-y-6 sm:space-y-8 animate-fade-in">
           <div className="border-b border-[#E2E8F0] pb-5 space-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-[#0891B2] px-3 py-1 rounded-full bg-[#0891B2]/10">
               Self-Service Booking
@@ -328,7 +328,7 @@ export function PortalAppointmentsClient({
             <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
               1. Choose Clinical Specialist *
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {doctors.map((doc) => {
                 const isSelected = bookForm.providerId === doc.id;
                 return (
@@ -357,7 +357,7 @@ export function PortalAppointmentsClient({
             <label className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
               2. Select Visit Type *
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
               {APPT_TYPE_OPTIONS.map((type) => {
                 const Icon = type.icon;
                 const isSelected = bookForm.appointmentType === type.value;
@@ -398,7 +398,7 @@ export function PortalAppointmentsClient({
             {/* Morning Slots */}
             <div className="space-y-2 pt-2">
               <span className="text-xs font-semibold uppercase text-[#94A3B8]">Morning Slots</span>
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 {MORNING_SLOTS.map((slot) => {
                   const isSelected = bookForm.time === slot.value;
                   return (
@@ -422,7 +422,7 @@ export function PortalAppointmentsClient({
             {/* Afternoon Slots */}
             <div className="space-y-2 pt-2">
               <span className="text-xs font-semibold uppercase text-[#94A3B8]">Afternoon Slots</span>
-              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2.5">
+              <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
                 {AFTERNOON_SLOTS.map((slot) => {
                   const isSelected = bookForm.time === slot.value;
                   return (
@@ -456,7 +456,7 @@ export function PortalAppointmentsClient({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-xs">
               <div>
                 <p className="text-[#94A3B8] font-medium">Patient Name</p>
                 <p className="font-bold text-[#0F172A] mt-0.5">{profile.first_name} {profile.last_name}</p>
@@ -513,18 +513,18 @@ export function PortalAppointmentsClient({
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E2E8F0]">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-3 pt-4 border-t border-[#E2E8F0]">
             <button
               type="button"
               onClick={() => setActiveTab('upcoming')}
-              className="px-5 py-2.5 rounded-xl border border-[#E2E8F0] text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC]"
+              className="px-5 py-3 rounded-xl border border-[#E2E8F0] text-xs font-semibold text-[#475569] hover:bg-[#F8FAFC] text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={booking}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-xs font-bold hover:opacity-95 shadow-md flex items-center gap-2 disabled:opacity-50"
+              className="flex-1 sm:flex-none px-8 py-3 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-xs font-bold hover:opacity-95 shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {booking ? (
                 <>
