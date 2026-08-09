@@ -9,7 +9,7 @@ import {
   Search, Sparkles, Download, RefreshCw, Filter, Calendar,
   MoreHorizontal, ChevronDown, Check, ArrowDownRight, ArrowUpRight,
   GripVertical, Users, Shield, Bot, AlertTriangle, CheckCircle2,
-  FileText, Activity, RadioReceiver, X, ExternalLink, CheckCircle, Clock, XCircle
+  FileText, Activity, RadioReceiver, X, ExternalLink, CheckCircle, Clock, XCircle, MessageSquare
 } from 'lucide-react';
 import { formatDate, formatRelative } from '@/lib/utils';
 import { AdminSettings } from '@/components/AdminSettings';
@@ -361,6 +361,13 @@ export function AdminDashboardClient({
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+
+          <Link href="/admin/messages">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#0891B2]/30 bg-[#0891B2]/10 hover:bg-[#0891B2]/20 text-xs font-bold text-[#0891B2] transition-all shadow-sm cursor-pointer">
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Contact Messages</span>
+            </span>
+          </Link>
 
           <button
             type="button"

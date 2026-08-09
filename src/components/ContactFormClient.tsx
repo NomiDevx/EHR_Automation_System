@@ -5,7 +5,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input, Textarea, Button, Card } from '@/components/ui';
-import { Send, CheckCircle2 } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { submitContactForm } from '@/app/actions';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -18,17 +19,25 @@ type ContactFormData = z.infer<typeof contactSchema>;
 
 export function ContactFormClient() {
   const [success, setSuccess] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
   
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
   });
 
   const onSubmit = async (data: ContactFormData) => {
-    console.log('Submitting contact request:', data);
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setSuccess(true);
-    reset();
+    setServerError(null);
+    try {
+      const result = await submitContactForm(data);
+      if (result.success) {
+        setSuccess(true);
+        reset();
+      } else {
+        setServerError(result.error || 'Failed to submit message. Please try again.');
+      }
+    } catch (err: any) {
+      setServerError('An unexpected error occurred while sending your message.');
+    }
   };
 
   if (success) {
@@ -42,12 +51,12 @@ export function ContactFormClient() {
           <CheckCircle2 className="w-8 h-8 animate-bounce" />
         </div>
 
-        <h3 className="text-xl font-bold text-[hsl(var(--foreground))] mb-2">Message Sent!</h3>
-        <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))] max-w-sm mx-auto mb-6">
-          Thank you for reaching out to MediCore. Our administrator team will review your inquiry and respond to your email within 24 hours.
+        <h3 className="text-xl font-bold text-[#0B2A55] mb-2">Message Received!</h3>
+        <p className="text-xs sm:text-sm text-[#475569] max-w-sm mx-auto mb-6 leading-relaxed">
+          Thank you for contacting MediSynx EHR. Your inquiry has been dispatched to our administrative team, and we will follow up with you shortly.
         </p>
 
-        <Button variant="secondary" onClick={() => setSuccess(false)} className="mx-auto">
+        <Button variant="secondary" onClick={() => setSuccess(false)} className="mx-auto border-[#E2E8F0] hover:bg-[#F8FAFC]">
           Send Another Message
         </Button>
       </Card>
@@ -58,9 +67,16 @@ export function ContactFormClient() {
     <Card className="border-[hsl(var(--border))]">
       <div className="p-6 sm:p-8 space-y-6">
         <div>
-          <h3 className="text-lg font-bold text-[hsl(var(--foreground))]">Send Us a Message</h3>
-          <p className="text-xs text-[hsl(var(--muted-foreground))]">Have a question or feedback? Complete the form below.</p>
+          <h3 className="text-lg font-bold text-[#0B2A55]">Send Us a Message</h3>
+          <p className="text-xs text-[#475569]">Have a question or feedback? Complete the form below.</p>
         </div>
+
+        {serverError && (
+          <div className="p-3 border border-red-200 bg-red-50 text-red-700 text-xs rounded-lg flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <span>{serverError}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

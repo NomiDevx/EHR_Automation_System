@@ -20,6 +20,7 @@ const NAV_ITEMS: Record<UserRole, { href: string; label: string; icon: React.Ele
   admin: [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/assistant', label: 'AI Insights', icon: Sparkles },
+    { href: '/admin/messages', label: 'Contact Messages', icon: MessageSquare },
     { href: '/clinical/patients', label: 'Patients', icon: Users },
     { href: '/schedule', label: 'Appointments', icon: Calendar },
     { href: '/clinical/notes', label: 'Records', icon: FileText },

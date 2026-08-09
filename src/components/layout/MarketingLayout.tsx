@@ -38,16 +38,16 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
       {/* ── TOP EMERGENCY & PORTAL QUICK ACCESS BANNER ───────────────────── */}
       <div className="bg-[#0B2A55] text-white text-xs font-semibold py-2 px-4 border-b border-blue-900/50 relative z-50">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+          <div className="flex items-center justify-center sm:justify-start gap-2">
+            <span className="flex h-2 w-2 relative shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <span className="text-slate-200">24/7 Virtual Care Available — Urgent Medical Emergency? Call 911 immediately.</span>
+            <span className="text-slate-200 text-[11px] sm:text-xs">24/7 Virtual Care Available — Urgent Medical Emergency? Call 911 immediately.</span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="hidden sm:flex items-center gap-4 text-[11px]">
             <Link href="/portal" className="text-cyan-300 hover:text-white transition-colors flex items-center gap-1 font-bold">
               <UserCheck className="w-3.5 h-3.5" /> Patient Portal
             </Link>
