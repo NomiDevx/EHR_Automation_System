@@ -1,6 +1,6 @@
 import { MarketingLayout } from '@/components/layout/MarketingLayout';
 import { ContactFormClient } from '@/components/ContactFormClient';
-import { Phone, Mail, MapPin, Clock, AlertTriangle, Sparkles } from 'lucide-react';
+import { Phone, Mail, MapPin, Clock, AlertTriangle, Sparkles, ShieldCheck } from 'lucide-react';
 
 export const metadata = {
   title: "Contact Us | MediSynx EHR",
@@ -43,21 +43,21 @@ export default function ContactPage() {
     <MarketingLayout>
       {/* Background Decorators */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#EDE9FE]/60 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 left-10 w-96 h-96 bg-[#F1F5F9]/80 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-[#0891B2]/10 rounded-full blur-[140px]" />
+        <div className="absolute bottom-10 left-10 w-[500px] h-[500px] bg-[#14B8A6]/10 rounded-full blur-[130px]" />
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
         {/* Intro Hero */}
         <section className="text-center max-w-3xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#8B5CF6]/30 bg-[#EDE9FE] text-xs font-bold text-[#6D28D9]">
-            <Sparkles className="w-3.5 h-3.5" /> Get In Touch
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#0891B2]/30 bg-[#0891B2]/10 text-xs font-bold text-[#0891B2] tracking-wide uppercase">
+            <Sparkles className="w-3.5 h-3.5 text-[#0891B2]" /> Get In Touch
           </div>
-          <h1 className="font-cambria text-4xl sm:text-5xl font-bold tracking-tight text-[#111827]">
+          <h1 className="font-cambria text-4xl sm:text-5xl font-extrabold tracking-tight text-[#0B2A55]">
             We Are Here To Help You
           </h1>
           <p className="text-base sm:text-lg text-[#475569] max-w-2xl mx-auto leading-relaxed">
-            Have questions about clinical scheduling, medical records, or user accounts? Reach out to our MediSynx EHR patient services team.
+            Have questions about clinical scheduling, medical records, or telehealth services? Reach out to our dedicated MediSynx EHR care team.
           </p>
         </section>
 
@@ -66,9 +66,9 @@ export default function ContactPage() {
           {/* Info cards */}
           <div className="lg:col-span-1 space-y-6">
             <div className="space-y-4">
-              <h2 className="font-cambria text-2xl font-bold text-[#111827]">Contact Information</h2>
+              <h2 className="font-cambria text-2xl font-bold text-[#0B2A55]">Contact Information</h2>
               <p className="text-xs text-[#475569] leading-relaxed">
-                Connect with our team via email, telephone, or visit us in person. Our patient coordinators are ready to assist.
+                Connect with our team via email, phone, or visit us in person. Our patient coordinators are ready to assist.
               </p>
             </div>
 
@@ -76,15 +76,15 @@ export default function ContactPage() {
               {contactDetails.map((detail, idx) => {
                 const Icon = detail.icon;
                 return (
-                  <div key={idx} className="bg-white border border-[#E5E7EB] rounded-xl p-4 flex items-start gap-4 shadow-sm hover:border-[#8B5CF6] transition-all">
-                    <div className="w-9 h-9 rounded-lg bg-[#EDE9FE] text-[#6D28D9] flex items-center justify-center shrink-0">
+                  <div key={idx} className="bg-white border border-[#E2E8F0] rounded-xl p-4 flex items-start gap-4 shadow-sm hover:border-[#0891B2] hover:shadow-md transition-all">
+                    <div className="w-9 h-9 rounded-lg bg-[#0891B2]/10 text-[#0891B2] flex items-center justify-center shrink-0">
                       <Icon className="w-4.5 h-4.5" />
                     </div>
                     <div className="space-y-0.5 text-xs">
-                      <h4 className="font-cambria font-bold text-sm text-[#111827]">{detail.title}</h4>
+                      <h3 className="font-cambria font-bold text-sm text-[#0B2A55]">{detail.title}</h3>
                       <p className="text-[#475569]">{detail.description}</p>
-                      <p className="font-semibold text-[#6D28D9] mt-1">{detail.info}</p>
-                      {detail.subInfo && <p className="text-[#94A3B8] font-medium">{detail.subInfo}</p>}
+                      <p className="font-bold text-[#0891B2] mt-1">{detail.info}</p>
+                      {detail.subInfo && <p className="text-[#64748B] font-medium">{detail.subInfo}</p>}
                     </div>
                   </div>
                 );
@@ -92,12 +92,12 @@ export default function ContactPage() {
             </div>
 
             {/* Safety Warning Card */}
-            <div className="p-4 border border-amber-300 bg-amber-50 flex items-start gap-3 rounded-xl">
+            <div className="p-4 border border-amber-300/80 bg-amber-50/90 flex items-start gap-3 rounded-xl shadow-sm">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-800 space-y-1">
+              <div className="text-xs text-amber-900 space-y-1">
                 <p className="font-bold">Medical Emergency Alert</p>
                 <p className="leading-relaxed">
-                  If you are experiencing a life-threatening health event, do not use this portal or contact form. Call <strong>911</strong> or go to your nearest emergency room immediately.
+                  If you are experiencing a life-threatening medical emergency, do not use this form. Please call <strong>911</strong> or proceed to the nearest emergency department immediately.
                 </p>
               </div>
             </div>
