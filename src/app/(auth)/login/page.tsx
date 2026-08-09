@@ -71,6 +71,13 @@ function LoginForm() {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const role = ((profile as any)?.role as UserRole) ?? 'patient';
 
+    // Fire login notification email in the background — non-blocking
+    fetch('/api/notifications/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ loginTime: new Date().toISOString() }),
+    }).catch(() => void 0);
+
     const isBookingRedirect = params.get('booking') === 'true';
     if (isBookingRedirect) {
       const bookingFirstName = params.get('firstName') || '';

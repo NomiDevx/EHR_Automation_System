@@ -2,6 +2,7 @@
 
 import { createAdminClient, createClient } from '@/lib/supabase/server';
 import type { Gender, AppointmentType } from '@/lib/types/database';
+import { notificationService } from '@/lib/notifications';
 
 // ─── Auth: Sign Up (bypasses email verification) ───────────────────────────────
 
@@ -85,6 +86,11 @@ export async function signUpPatient(
         })
         .eq('id', existingPat.id);
     }
+
+    // 4. Send signup confirmation email (fire-and-forget)
+    notificationService
+      .sendSignupConfirmation(email, cleanFirst, cleanLast)
+      .catch(() => void 0);
 
     return { success: true };
   } catch (err: any) {
@@ -232,6 +238,37 @@ export async function bookPublicAppointment(data: BookingInput) {
     await triggerWebhookForAppointment(appointment.id);
   } catch (err: any) {
     console.error('Error triggering webhook:', err.message);
+  }
+
+  // 5. Send appointment confirmation emails (patient + doctor) — fire-and-forget
+  try {
+    const supabaseAdmin = createAdminClient();
+    const { data: fullAppt } = await supabaseAdmin
+      .from('appointments')
+      .select('*, patient:patients(*)')
+      .eq('id', appointment.id)
+      .maybeSingle();
+
+    let providerProfile: any = null;
+    if (data.providerId) {
+      const { data: prov } = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name, email, specialty')
+        .eq('id', data.providerId)
+        .maybeSingle();
+      if (prov) providerProfile = prov;
+    }
+
+    if (fullAppt) {
+      notificationService
+        .sendAppointmentConfirmation({
+          ...fullAppt,
+          provider: providerProfile,
+        })
+        .catch(() => void 0);
+    }
+  } catch (notifErr: any) {
+    console.error('[bookPublicAppointment] Notification error:', notifErr.message);
   }
 
   return { success: true, appointmentId: appointment.id, mrn };
@@ -534,6 +571,43 @@ export async function updateAppointment(
       } catch (webhookErr: any) {
         console.error('[updateAppointment] Webhook re-trigger failed:', webhookErr.message);
       }
+    }
+
+    // 7. Send appointment update email — fire-and-forget
+    try {
+      const { data: updatedAppt } = await adminSupabase
+        .from('appointments')
+        .select('*, patient:patients(*)')
+        .eq('id', input.appointmentId)
+        .maybeSingle();
+
+      let providerProfile2: any = null;
+      if (updatedAppt?.provider_id) {
+        const { data: prov2 } = await adminSupabase
+          .from('profiles')
+          .select('first_name, last_name, email, specialty')
+          .eq('id', updatedAppt.provider_id)
+          .maybeSingle();
+        if (prov2) providerProfile2 = prov2;
+      }
+
+      if (updatedAppt && input.status) {
+        const updateTypeMap: Record<string, 'rescheduled' | 'cancelled' | 'confirmed'> = {
+          cancelled: 'cancelled',
+          confirmed: 'confirmed',
+          scheduled: 'rescheduled',
+        };
+        const updateType = updateTypeMap[input.status] ?? 'rescheduled';
+        notificationService
+          .sendAppointmentUpdate(
+            { ...updatedAppt, provider: providerProfile2 },
+            updateType,
+            input.reason,
+          )
+          .catch(() => void 0);
+      }
+    } catch (notifErr2: any) {
+      console.error('[updateAppointment] Notification error:', notifErr2.message);
     }
 
     return { success: true };
