@@ -34,7 +34,7 @@ export const AGENT_TOOLS = [
     function: {
       name: 'listDoctors',
       description:
-        'List all available doctors at the clinic with their specialty and availability.',
+        'List all available doctors. Returns each doctor with an `id` (UUID), `name`, and `specialty`. You MUST use the `id` field as the `doctor_id` in subsequent tool calls — never use the name as an ID.',
       parameters: {
         type: 'object',
         properties: {},
@@ -79,13 +79,13 @@ export const AGENT_TOOLS = [
     function: {
       name: 'bookAppointment',
       description:
-        'Book a new appointment for the patient. Only call this AFTER you have confirmed: the appointment type, doctor, and time slot with the patient.',
+        'Book a new appointment for the patient. Only call this AFTER you have confirmed: the appointment type, doctor, and time slot with the patient. The doctor_id MUST be the exact UUID `id` returned by listDoctors — do not pass a name or placeholder.',
       parameters: {
         type: 'object',
         properties: {
           doctor_id: {
             type: 'string',
-            description: 'The UUID of the chosen doctor.',
+            description: 'The exact UUID `id` of the chosen doctor as returned by listDoctors. Do NOT pass a doctor name or description here.',
           },
           slot_iso: {
             type: 'string',
@@ -94,7 +94,7 @@ export const AGENT_TOOLS = [
           appointment_type: {
             type: 'string',
             enum: ['new_patient', 'follow_up', 'urgent', 'telehealth', 'wellness'],
-            description: 'The type of appointment to book.',
+            description: 'The appointment type enum value. Must be one of the listed values. Use follow_up for general/office visits, new_patient for first-time patients, wellness for checkups.',
           },
           chief_complaint: {
             type: 'string',

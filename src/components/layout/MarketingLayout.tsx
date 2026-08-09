@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { Menu, X, LogIn, UserPlus, Phone, Mail, MapPin, Sparkles, Calendar } from 'lucide-react';
+import { Menu, X, LogIn, UserPlus, Phone, Mail, MapPin, Sparkles, Calendar, UserCheck, Stethoscope, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MarketingLayoutProps {
@@ -36,8 +36,35 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#0F172A]">
 
+      {/* ── TOP EMERGENCY & PORTAL QUICK ACCESS BANNER ───────────────────── */}
+      <div className="bg-[#0B2A55] text-white text-xs font-semibold py-2 px-4 border-b border-blue-900/50 relative z-50">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="text-slate-200">24/7 Virtual Care Available — Urgent Medical Emergency? Call 911 immediately.</span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px]">
+            <Link href="/portal" className="text-cyan-300 hover:text-white transition-colors flex items-center gap-1 font-bold">
+              <UserCheck className="w-3.5 h-3.5" /> Patient Portal
+            </Link>
+            <span className="text-slate-600">|</span>
+            <Link href="/clinical/patients" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+              <Stethoscope className="w-3.5 h-3.5 text-cyan-400" /> Doctor Portal
+            </Link>
+            <span className="text-slate-600">|</span>
+            <Link href="/admin" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5 text-purple-400" /> Admin Access
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Floating Curved Navigation Header with Gaps on Both Sides */}
-      <div className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8 w-full max-w-6xl mx-auto">
+      <div className="sticky top-3 z-40 px-4 sm:px-6 lg:px-8 w-full max-w-6xl mx-auto pt-3 pb-1">
         <header className="border border-[#E2E8F0] bg-white/95 backdrop-blur-md rounded-full shadow-lg shadow-[#0B2A55]/5 px-4 sm:px-6 py-2 transition-all duration-300 flex items-center justify-between gap-4">
 
           {/* PROMINENT LARGE FREE STANDING LOGO — /images/image.png */}
@@ -47,7 +74,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               alt="MediSynx EHR Logo"
               width={350}
               height={60}
-              className="h-14 sm:h-20 w-auto max-w-[200px] sm:max-w-[280px] object-contain transition-transform hover:scale-105"
+              className="h-10 sm:h-9 w-auto max-w-[180px] sm:max-w-[220px] object-contain scale-[2.6] sm:scale-[3.0] origin-left transition-transform hover:scale-[3.1] ml-2 sm:ml-4"
               priority
             />
           </Link>
@@ -149,13 +176,13 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             {/* Brand Column */}
             <div className="md:col-span-5 space-y-4">
               {/* Free Standing Large Footer Logo — /images/image.png */}
-              <Link href="/" className="inline-block">
+              <Link href="/" className="inline-block overflow-visible py-2">
                 <Image
                   src="/images/image.png"
                   alt="MediSynx EHR Logo"
                   width={350}
                   height={100}
-                  className="h-16 sm:h-22 w-auto max-w-[240px] sm:max-w-[320px] object-contain brightness-0 invert"
+                  className="h-16 sm:h-20 w-auto max-w-[240px] sm:max-w-[320px] object-contain brightness-0 invert scale-[1.8] sm:scale-[2.2] origin-left transition-transform hover:scale-[2.25] my-2"
                 />
               </Link>
               <p className="text-sm text-slate-300 leading-relaxed max-w-sm font-normal">

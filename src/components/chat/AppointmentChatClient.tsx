@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { ChatAccessibilityBar } from './ChatAccessibilityBar';
 import { ChatInputBar } from './ChatInputBar';
 import { ChatMessageList, type ChatMessage } from './ChatMessageList';
-import { TalkToHumanButton } from './TalkToHumanButton';
 
 import { createClient } from '@/lib/supabase/client';
 import { Lock, LogIn } from 'lucide-react';
@@ -312,8 +311,6 @@ export function AppointmentChatClient() {
           onMicToggle={handleMicToggle}
         />
       </div>
-
-      <TalkToHumanButton />
 
       <ChatHistoryModal
         isOpen={showHistoryModal}

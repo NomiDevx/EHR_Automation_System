@@ -93,33 +93,6 @@ export function HomeClient({ doctors }: HomeClientProps) {
       {/* Custom Fast Page Loader */}
       <CustomLoader message="Initializing MediSynx EHR…" />
 
-      {/* ── TOP EMERGENCY & PORTAL QUICK ACCESS BANNER ───────────────────── */}
-      <div className="bg-[#0B2A55] text-white text-xs font-semibold py-2 px-4 border-b border-blue-900/50">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="text-slate-200">24/7 Virtual Care Available — Urgent Medical Emergency? Call 911 immediately.</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/portal" className="text-cyan-300 hover:text-white transition-colors flex items-center gap-1 font-bold">
-              <UserCheck className="w-3.5 h-3.5" /> Patient Portal
-            </Link>
-            <span className="text-slate-600">|</span>
-            <Link href="/clinical/patients" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1">
-              <Stethoscope className="w-3.5 h-3.5 text-cyan-400" /> Doctor Portal
-            </Link>
-            <span className="text-slate-600">|</span>
-            <Link href="/admin" className="text-slate-300 hover:text-white transition-colors flex items-center gap-1">
-              <Shield className="w-3.5 h-3.5 text-purple-400" /> Admin Access
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Background Cyan & Teal Glow Accents */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden>
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-[#0891B2]/10 blur-[130px]" />

@@ -41,6 +41,7 @@ function LoginForm() {
   const params = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const supabase = createClient();
 
   const getSignupUrl = () => {
@@ -138,6 +139,7 @@ function LoginForm() {
       }
     }
 
+    setIsNavigating(true);
     router.push(isBookingRedirect ? '/portal?booking_success=true' : targetUrl);
     router.refresh();
   };
@@ -145,7 +147,7 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex w-full relative">
       {/* Custom Auth Loading Spinner */}
-      {isSubmitting && <CustomLoader fullScreen={true} message="Authenticating..." />}
+      {isSubmitting && <CustomLoader fullScreen={true} message="Authenticating..." autoFade={false} />}
 
       {/* ── Left Panel — Navy (#0B2A55) Brand Sidebar ──────────── */}
       <div className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 bg-[#0B2A55] text-white relative overflow-hidden">
@@ -259,9 +261,17 @@ function LoginForm() {
             />
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="login-password" className="text-xs font-semibold text-[#0F172A]">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="login-password" className="text-xs font-semibold text-[#0F172A]">
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-[#0891B2] font-semibold hover:underline underline-offset-2 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="login-password"
@@ -294,17 +304,17 @@ function LoginForm() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isNavigating}
               id="login-submit-btn"
               className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-sm font-bold tracking-wide hover:opacity-95 disabled:opacity-60 transition-all duration-200 shadow-md"
             >
-              {isSubmitting ? (
+              {isSubmitting || isNavigating ? (
                 <>
                   <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Signing in…
+                  {isNavigating ? 'Redirecting…' : 'Signing in…'}
                 </>
               ) : (
                 <>

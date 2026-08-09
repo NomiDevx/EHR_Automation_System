@@ -76,7 +76,13 @@ async function executeTool(
       }
       case 'bookAppointment': {
         if (!state.patient_id) return JSON.stringify({ success: false, error: 'Patient not identified. Call lookupPatient first.' });
-        const result = await bookAppointment({ patientId: state.patient_id, doctorId: typeof args.doctor_id === 'string' ? args.doctor_id : undefined, slotIso: args.slot_iso as string, appointmentType: args.appointment_type as string });
+        const result = await bookAppointment({
+          patientId: state.patient_id,
+          doctorId: typeof args.doctor_id === 'string' ? args.doctor_id : undefined,
+          slotIso: args.slot_iso as string,
+          appointmentType: args.appointment_type as string,
+          chiefComplaint: typeof args.chief_complaint === 'string' ? args.chief_complaint : undefined,
+        });
         return JSON.stringify(result);
       }
       case 'cancelAppointment': {

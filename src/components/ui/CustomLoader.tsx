@@ -7,18 +7,26 @@ interface CustomLoaderProps {
   fullScreen?: boolean;
   message?: string;
   onFinish?: () => void;
+  /**
+   * When true (default), the loader auto-fades after 600 ms — useful for
+   * page-transition placeholders. Set to false when used as an auth overlay
+   * so it stays visible until the parent unmounts (i.e. navigation completes).
+   */
+  autoFade?: boolean;
 }
 
 export function CustomLoader({
   fullScreen = true,
-  message = "Loading MediSynx EHR...",
+  message = 'Loading MediSynx EHR...',
   onFinish,
+  autoFade = true,
 }: CustomLoaderProps) {
   const [visible, setVisible] = useState(true);
   const [fading, setFading] = useState(false);
 
   useEffect(() => {
-    // Auto fadeout after 600ms for high performance
+    if (!autoFade) return; // Controlled externally — no auto-dismiss
+
     const timer = setTimeout(() => {
       setFading(true);
       const hideTimer = setTimeout(() => {
@@ -29,7 +37,7 @@ export function CustomLoader({
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [onFinish]);
+  }, [autoFade, onFinish]);
 
   if (!visible) return null;
 
@@ -53,7 +61,7 @@ export function CustomLoader({
           />
         </div>
       </div>
-      
+
       <div className="text-center space-y-1">
         <p className="font-cambria text-xl font-bold text-[#0B2A55] tracking-wide">
           MediSynx <span className="text-[#0891B2]">EHR</span>

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server';
+import { notificationService } from '@/lib/notifications';
 
 export interface DoctorRecord {
   id: string;
@@ -80,39 +81,34 @@ export async function lookupPatientByNameDob(name: string, dob: string): Promise
 export async function listDoctors(): Promise<DoctorRecord[]> {
   try {
     const supabase = createAdminClient();
-    const { data: doctors, error } = await supabase
-      .from('doctors')
-      .select(`
-        id,
-        specialty,
-        department,
-        profiles!inner (
-          first_name,
-          last_name
-        )
-      `);
 
-    if (error || !doctors) {
-      console.warn('[listDoctors] Supabase query returned no doctors or error:', error);
-      return [
-        { id: 'doc-1', first_name: 'Sarah', last_name: 'Smith', specialty: 'General Practice' },
-        { id: 'doc-2', first_name: 'Robert', last_name: 'Johnson', specialty: 'Cardiology' },
-        { id: 'doc-3', first_name: 'Emily', last_name: 'Davis', specialty: 'Internal Medicine' },
-      ];
+    // Doctors are stored in profiles with role='doctor'
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, specialty')
+      .eq('role', 'doctor')
+      .eq('is_active', true)
+      .order('last_name', { ascending: true });
+
+    if (error) {
+      console.warn('[listDoctors] Query error:', error.message);
+      return [];
     }
 
-    return doctors.map((d: any) => ({
-      id: d.id,
-      first_name: d.profiles?.first_name || 'Doctor',
-      last_name: d.profiles?.last_name || '',
-      specialty: d.specialty || d.department || 'General Practice',
+    if (!data || data.length === 0) {
+      console.warn('[listDoctors] No active doctors found in profiles table.');
+      return [];
+    }
+
+    return data.map((p: any) => ({
+      id: p.id,
+      first_name: p.first_name || 'Doctor',
+      last_name: p.last_name || '',
+      specialty: p.specialty || 'General Practice',
     }));
   } catch (err) {
     console.error('[listDoctors] Error:', err);
-    return [
-      { id: 'doc-1', first_name: 'Sarah', last_name: 'Smith', specialty: 'General Practice' },
-      { id: 'doc-2', first_name: 'Robert', last_name: 'Johnson', specialty: 'Cardiology' },
-    ];
+    return [];
   }
 }
 
@@ -153,15 +149,77 @@ export async function bookAppointment(params: {
   doctorId?: string;
   slotIso: string;
   appointmentType?: string;
+  chiefComplaint?: string;
 }): Promise<{ success: boolean; appointmentId?: string; reason?: string }> {
   try {
     const supabase = createAdminClient();
 
-    // Default to first active doctor if doctorId not specified
+    // ── Normalize appointment type ─────────────────────────────────────────
+    const VALID_TYPES = new Set(['new_patient', 'follow_up', 'urgent', 'telehealth', 'wellness']);
+    const TYPE_MAP: Record<string, string> = {
+      'office visit': 'follow_up',
+      'office': 'follow_up',
+      'regular': 'follow_up',
+      'general': 'follow_up',
+      'checkup': 'wellness',
+      'check up': 'wellness',
+      'check-up': 'wellness',
+      'annual': 'wellness',
+      'annual checkup': 'wellness',
+      'wellness checkup': 'wellness',
+      'new patient': 'new_patient',
+      'new patient visit': 'new_patient',
+      'first visit': 'new_patient',
+      'video': 'telehealth',
+      'virtual': 'telehealth',
+      'online': 'telehealth',
+      'video call': 'telehealth',
+      'same day': 'urgent',
+      'same-day': 'urgent',
+      'urgent care': 'urgent',
+      'emergency': 'urgent',
+    };
+    const rawType = (params.appointmentType || '').toLowerCase().trim();
+    let resolvedType: string;
+    if (VALID_TYPES.has(rawType)) {
+      resolvedType = rawType;
+    } else if (TYPE_MAP[rawType]) {
+      resolvedType = TYPE_MAP[rawType];
+      console.log(`[bookAppointment] Normalized appointment_type "${rawType}" → "${resolvedType}"`);
+    } else {
+      resolvedType = 'follow_up'; // safe default
+      console.warn(`[bookAppointment] Unknown appointment_type "${rawType}", defaulting to follow_up`);
+    }
+
+    // ── Resolve doctor ID ─────────────────────────────────────────────────
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let doctorId = params.doctorId;
-    if (!doctorId) {
+
+    if (doctorId && !UUID_RE.test(doctorId)) {
+      // Not a UUID — try to match by name from the real doctor list
+      console.warn('[bookAppointment] Non-UUID doctor_id received, attempting name match. Got:', doctorId);
+      const allDoctors = await listDoctors();
+      const needle = doctorId.toLowerCase().replace(/[^a-z\s]/g, '').trim();
+      const matched = allDoctors.find((d) => {
+        const full = `${d.first_name} ${d.last_name}`.toLowerCase();
+        return needle.includes(d.first_name.toLowerCase()) ||
+               needle.includes(d.last_name.toLowerCase()) ||
+               full.includes(needle);
+      });
+      if (matched) {
+        console.log(`[bookAppointment] Matched doctor name to UUID: ${matched.first_name} ${matched.last_name} → ${matched.id}`);
+        doctorId = matched.id;
+      } else {
+        console.warn('[bookAppointment] No name match found, using first available doctor.');
+        doctorId = allDoctors[0]?.id;
+      }
+    } else if (!doctorId) {
       const docs = await listDoctors();
       doctorId = docs[0]?.id;
+    }
+
+    if (!doctorId) {
+      return { success: false, reason: 'No available doctors found. Please try again later or call the clinic.' };
     }
 
     const { data, error } = await supabase
@@ -171,9 +229,9 @@ export async function bookAppointment(params: {
         provider_id: doctorId,
         scheduled_at: params.slotIso,
         duration_mins: 30,
-        type: params.appointmentType || 'follow_up',
+        type: resolvedType,
         status: 'scheduled',
-        chief_complaint: 'Booked via AI Assistant',
+        chief_complaint: params.chiefComplaint || 'Booked via AI Assistant',
       })
       .select('id')
       .single();
@@ -189,6 +247,41 @@ export async function bookAppointment(params: {
       await triggerWebhookForAppointment(data.id);
     } catch (whErr: any) {
       console.error('[bookAppointment] Webhook trigger error:', whErr.message);
+    }
+
+    // Send confirmation email
+    try {
+      const supabaseForEmail = createAdminClient();
+
+      // Fetch appointment + patient (same pattern that works in actions.ts)
+      const { data: apptFull, error: apptErr } = await supabaseForEmail
+        .from('appointments')
+        .select('*, patient:patients(*)')
+        .eq('id', data.id)
+        .maybeSingle();
+
+      if (apptErr) {
+        console.error('[bookAppointment] Email fetch error:', apptErr.message);
+      } else if (apptFull) {
+        // Fetch provider profile separately
+        let providerProfile: any = null;
+        if (doctorId) {
+          const { data: prov } = await supabaseForEmail
+            .from('profiles')
+            .select('first_name, last_name, email, specialty')
+            .eq('id', doctorId)
+            .maybeSingle();
+          if (prov) providerProfile = prov;
+        }
+
+        notificationService
+          .sendAppointmentConfirmation({ ...apptFull, provider: providerProfile })
+          .catch((e: any) => console.error('[bookAppointment] sendAppointmentConfirmation failed:', e?.message));
+      } else {
+        console.warn('[bookAppointment] No appointment record found for email, id:', data.id);
+      }
+    } catch (emailErr: any) {
+      console.error('[bookAppointment] Email notification error:', emailErr.message);
     }
 
     return { success: true, appointmentId: data.id };
@@ -285,6 +378,41 @@ export async function rescheduleAppointment(appointmentId: string, newSlotIso: s
       console.error('[rescheduleAppointment] Supabase error:', error);
       return false;
     }
+
+    // Send reschedule email
+    try {
+      const supabaseForEmail = createAdminClient();
+
+      // Fetch appointment + patient (two-query pattern, same as actions.ts)
+      const { data: updatedAppt, error: fetchErr } = await supabaseForEmail
+        .from('appointments')
+        .select('*, patient:patients(*)')
+        .eq('id', appointmentId)
+        .maybeSingle();
+
+      if (fetchErr) {
+        console.error('[rescheduleAppointment] Email fetch error:', fetchErr.message);
+      } else if (updatedAppt) {
+        let providerProfile: any = null;
+        if (updatedAppt.provider_id) {
+          const { data: prov } = await supabaseForEmail
+            .from('profiles')
+            .select('first_name, last_name, email, specialty')
+            .eq('id', updatedAppt.provider_id)
+            .maybeSingle();
+          if (prov) providerProfile = prov;
+        }
+
+        notificationService
+          .sendAppointmentUpdate({ ...updatedAppt, provider: providerProfile }, 'rescheduled')
+          .catch((e: any) => console.error('[rescheduleAppointment] sendAppointmentUpdate failed:', e?.message));
+      } else {
+        console.warn('[rescheduleAppointment] No appointment record found for email, id:', appointmentId);
+      }
+    } catch (emailErr: any) {
+      console.error('[rescheduleAppointment] Email notification error:', emailErr.message);
+    }
+
     return true;
   } catch (err) {
     console.error('[rescheduleAppointment] Error:', err);

@@ -1109,3 +1109,45 @@ export async function updateAppointmentStatus(
   }
 }
 
+
+// ─── Delete My Account ────────────────────────────────────────────────────────
+
+export async function deleteMyAccount(): Promise<{ success: true } | { error: string }> {
+  try {
+    const supabase = await createClient();
+    const adminSupabase = createAdminClient();
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { error: 'You must be logged in to delete your account.' };
+    }
+
+    const userId = user.id;
+
+    // 1. Delete patient record linked to this profile
+    await adminSupabase
+      .from('patients')
+      .delete()
+      .eq('profile_id', userId);
+
+    // 2. Delete the profile row
+    await adminSupabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    // 3. Sign the user out of their current session
+    await supabase.auth.signOut();
+
+    // 4. Delete the auth user (must happen after signOut to avoid invalidated token errors)
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId);
+    if (deleteError) {
+      return { error: deleteError.message || 'Failed to delete account. Please contact support.' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[deleteMyAccount]', err);
+    return { error: err?.message || 'An unexpected error occurred.' };
+  }
+}

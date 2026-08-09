@@ -44,6 +44,7 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const supabase = createClient();
 
   const isBookingRedirect = searchParams.get('booking') === 'true';
@@ -110,6 +111,7 @@ function SignupForm() {
         }
       }
 
+      setIsNavigating(true);
       router.push(isBookingRedirect ? '/portal?booking_success=true' : '/portal');
       router.refresh();
     } catch (err: any) {
@@ -149,7 +151,7 @@ function SignupForm() {
   return (
     <div className="min-h-screen flex w-full relative">
       {/* Custom Auth Loading Spinner */}
-      {isSubmitting && <CustomLoader fullScreen={true} message="Creating Portal Account..." />}
+      {isSubmitting && <CustomLoader fullScreen={true} message="Creating Portal Account..." autoFade={false} />}
 
       {/* ── Left Panel — Navy (#0B2A55) Brand Sidebar ──────────── */}
       <div className="hidden lg:flex lg:w-[46%] xl:w-[44%] flex-col justify-between p-14 bg-[#0B2A55] text-white relative overflow-hidden">
@@ -299,17 +301,17 @@ function SignupForm() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isNavigating}
               id="signup-submit-btn"
               className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#0B2A55] to-[#0891B2] text-white text-sm font-bold tracking-wide hover:opacity-95 disabled:opacity-60 transition-all duration-200 shadow-md"
             >
-              {isSubmitting ? (
+              {isSubmitting || isNavigating ? (
                 <>
                   <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Creating Account…
+                  {isNavigating ? 'Redirecting…' : 'Creating Account…'}
                 </>
               ) : (
                 <>

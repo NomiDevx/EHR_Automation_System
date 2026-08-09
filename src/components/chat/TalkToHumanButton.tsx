@@ -1,33 +1,52 @@
 'use client';
 
 import { useState } from 'react';
-import { Phone, X } from 'lucide-react';
+import { Phone, X, PhoneCall } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PLACEHOLDER_PHONE = '(555) 123-4567';
 const CLINIC_HOURS = 'Monday – Friday, 8:00 AM – 5:00 PM';
 
-export function TalkToHumanButton() {
+interface TalkToHumanButtonProps {
+  /** Render as an inline subtle link instead of a fixed floating pill */
+  inline?: boolean;
+}
+
+export function TalkToHumanButton({ inline = false }: TalkToHumanButtonProps) {
   const [open, setOpen] = useState(false);
+
+  const trigger = inline ? (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="Talk to a real person"
+      className="inline-flex items-center gap-1.5 text-xs text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] transition-colors py-1 px-2 rounded-lg hover:bg-[hsl(var(--surface-hover))]"
+    >
+      <PhoneCall className="w-3.5 h-3.5" aria-hidden />
+      <span>Talk to a real person</span>
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="Talk to a real person"
+      className={cn(
+        'fixed z-40 bottom-4 right-4 sm:bottom-8 sm:right-8',
+        'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-full',
+        'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]',
+        'text-xs sm:text-sm font-semibold shadow-xl',
+        'hover:brightness-110 transition-all opacity-95 hover:opacity-100',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[hsl(var(--accent))]',
+      )}
+    >
+      <Phone className="w-4 h-4 shrink-0" aria-hidden />
+      <span>Talk to a real person</span>
+    </button>
+  );
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Talk to a real person"
-        className={cn(
-          'fixed z-40 bottom-4 right-4 sm:bottom-8 sm:right-8',
-          'inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-full',
-          'bg-[hsl(var(--accent))] text-[hsl(var(--accent-foreground))]',
-          'text-xs sm:text-sm font-semibold shadow-xl',
-          'hover:brightness-110 transition-all opacity-95 hover:opacity-100',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[hsl(var(--accent))]',
-        )}
-      >
-        <Phone className="w-4 h-4 shrink-0" aria-hidden />
-        <span>Talk to a real person</span>
-      </button>
+      {trigger}
 
       {open && (
         <div

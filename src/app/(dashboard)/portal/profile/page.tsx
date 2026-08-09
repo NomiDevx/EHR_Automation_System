@@ -5,6 +5,7 @@ import { formatDate } from '@/lib/utils';
 import { UserCircle, ShieldCheck, CalendarDays, Mail, Phone, CreditCard, User, Sparkles } from 'lucide-react';
 import { ProfileEditForm } from './ProfileEditForm';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
+import { DeleteAccountSection } from '../components/DeleteAccountSection';
 
 export const metadata: Metadata = { title: 'My Profile | MediSynx EHR' };
 
@@ -39,19 +40,19 @@ export default async function ProfilePage() {
       <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[#0B2A55]/10 text-[#0B2A55] border border-[#0B2A55]/20">
-            <Sparkles className="w-3.5 h-3.5" /> Security & Profile
+            <Sparkles className="w-3.5 h-3.5" /> Security &amp; Profile
           </span>
           <h1 className="font-cambria text-2xl sm:text-3xl font-bold text-[#0B2A55]">My Profile Settings</h1>
           <p className="text-xs sm:text-sm text-[#475569]">
             View details on file · Edit personal data · Change account password
           </p>
         </div>
-
         <div className="w-12 h-12 rounded-2xl bg-[#0B2A55]/10 border border-[#0B2A55]/20 flex items-center justify-center text-[#0B2A55] shrink-0">
           <UserCircle className="w-6 h-6" />
         </div>
       </div>
 
+      {/* Top 2-col grid: data snapshot + change password */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Current data snapshot */}
         <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
@@ -125,6 +126,26 @@ export default async function ProfilePage() {
           <ChangePasswordForm />
         </div>
       </div>
+
+      {/* Edit personal details — full width */}
+      <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="flex items-center gap-3 border-b border-[#F1F5F9] pb-4">
+          <UserCircle className="w-5 h-5 text-[#0891B2]" />
+          <h2 className="font-cambria text-lg font-bold text-[#0B2A55]">Edit Personal Details</h2>
+        </div>
+        <p className="text-xs text-[#475569] leading-relaxed">
+          Update your name or date of birth as recorded in the system.
+        </p>
+        <ProfileEditForm
+          firstName={patient.first_name}
+          lastName={patient.last_name}
+          dateOfBirth={patient.date_of_birth ?? ''}
+        />
+      </div>
+
+      {/* Danger Zone */}
+      <DeleteAccountSection />
     </div>
   );
 }
+

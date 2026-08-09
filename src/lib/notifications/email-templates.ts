@@ -221,11 +221,13 @@ export function signupConfirmationEmail(data: SignupEmailData): string {
 
   const body = `
     <!-- Greeting -->
-    <h2 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0B2A55;">
-      Welcome, ${data.firstName}! 🎉
+    <h2 style="margin:0 0 6px;font-size:22px;font-weight:800;color:#0B2A55;">
+      Welcome to MediSynx, ${data.firstName}! 🎉
     </h2>
-    <p style="margin:0 0 24px;font-size:14px;color:#475569;line-height:1.6;">
-      Your MediSynx Patient Portal account has been successfully created. You can now access your health records, book appointments, and communicate securely with your care team.
+    <p style="margin:0 0 24px;font-size:14px;color:#475569;line-height:1.7;">
+      Your patient portal account is now <strong style="color:#16A34A;">active and ready to use</strong>.
+      MediSynx EHR is your all-in-one digital health platform — connecting you directly with your
+      care team, your records, and everything you need to manage your health from anywhere.
     </p>
 
     ${infoCard('👤', 'Your Account Details', [
@@ -235,32 +237,77 @@ export function signupConfirmationEmail(data: SignupEmailData): string {
       ['Account Status', '<span style="color:#16A34A;font-weight:700;">✓ Active</span>'],
     ], '#4CAF50', '#F0FDF4')}
 
-    <!-- What you can do -->
+    <!-- About MediSynx EHR -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-      style="background:linear-gradient(135deg,#EFF6FF,#F0FDFA);border-radius:14px;margin-bottom:24px;">
+      style="background:#F8FAFC;border-radius:14px;border:1px solid #E2E8F0;margin-bottom:24px;">
       <tr>
         <td style="padding:20px 24px;">
-          <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#0891B2;">✨ What you can do with your account</p>
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-            ${[
-              ['📅', 'Book & manage appointments online'],
-              ['📋', 'View your medical records & lab results'],
-              ['💊', 'Track prescriptions & medications'],
-              ['💬', 'Message your care team securely'],
-              ['📊', 'Log vitals & track your health trends'],
-            ].map(([icon, text]) => `
-              <tr>
-                <td style="padding:5px 0;font-size:13px;color:#334155;">
-                  <span style="margin-right:8px;">${icon}</span>${text}
-                </td>
-              </tr>
-            `).join('')}
-          </table>
+          <p style="margin:0 0 10px;font-size:13px;font-weight:800;color:#0B2A55;">🏥 About MediSynx EHR</p>
+          <p style="margin:0;font-size:13px;color:#475569;line-height:1.7;">
+            MediSynx is a <strong>next-generation Electronic Health Record (EHR) system</strong> built to give patients
+            complete visibility into their healthcare journey. From booking appointments to reviewing lab results
+            and chatting with an AI health assistant — everything is in one secure, HIPAA-aligned platform.
+          </p>
         </td>
       </tr>
     </table>
 
-    ${ctaButton('Go to Your Dashboard', `${PORTAL_URL}/portal`, '#0891B2')}
+    <!-- Feature showcase grid -->
+    <p style="margin:0 0 14px;font-size:13px;font-weight:700;color:#0891B2;">✨ Everything included in your portal</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+      ${[
+        ['📅', 'Appointment Booking', 'Book, reschedule or cancel appointments with any of our specialists — online, 24/7.'],
+        ['📋', 'Medical Records', 'Instant access to your diagnoses, clinical notes, visit history, and discharge summaries.'],
+        ['🔬', 'Lab Results', 'View all laboratory test results the moment they are released by your care team.'],
+        ['💊', 'Medications', 'Track your current prescriptions, dosage schedules, and refill history.'],
+        ['💬', 'Secure Messaging', 'Send encrypted messages directly to your doctor or care coordinator.'],
+        ['🤖', 'AI Health Assistant', 'Chat with our intelligent assistant to book appointments, ask health questions, or navigate the portal.'],
+      ].map(([icon, title, desc]) => `
+        <tr>
+          <td style="padding:0 0 12px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+              style="background:#ffffff;border-radius:12px;border:1px solid #E2E8F0;">
+              <tr>
+                <td style="padding:14px 18px;vertical-align:top;width:36px;font-size:20px;">${icon}</td>
+                <td style="padding:14px 18px 14px 0;vertical-align:top;">
+                  <p style="margin:0 0 3px;font-size:13px;font-weight:700;color:#0F172A;">${title}</p>
+                  <p style="margin:0;font-size:12px;color:#64748B;line-height:1.5;">${desc}</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      `).join('')}
+    </table>
+
+    <!-- Quick start guide -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="background:linear-gradient(135deg,#EFF6FF,#F0FDFA);border-radius:14px;margin-bottom:28px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 14px;font-size:13px;font-weight:800;color:#0891B2;">🚀 Get started in 3 steps</p>
+          ${[
+            ['1', 'Sign in to your portal', `Visit <a href="${PORTAL_URL}/portal" style="color:#0891B2;font-weight:600;">your dashboard</a> and explore your health hub.`],
+            ['2', 'Book your first appointment', 'Go to <strong>Appointments → New Booking</strong> and choose a specialist and time that works for you.'],
+            ['3', 'Try the AI Assistant', 'Click the <strong>Assistant</strong> tab to chat with our AI — ask it to book an appointment, check your labs, or answer health questions.'],
+          ].map(([num, title, desc]) => `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+              <tr>
+                <td style="vertical-align:top;width:28px;">
+                  <div style="width:24px;height:24px;border-radius:50%;background:#0891B2;color:#fff;font-size:11px;font-weight:800;text-align:center;line-height:24px;">${num}</div>
+                </td>
+                <td style="vertical-align:top;padding-left:10px;">
+                  <p style="margin:0 0 2px;font-size:13px;font-weight:700;color:#0F172A;">${title}</p>
+                  <p style="margin:0;font-size:12px;color:#475569;line-height:1.5;">${desc}</p>
+                </td>
+              </tr>
+            </table>
+          `).join('')}
+        </td>
+      </tr>
+    </table>
+
+    ${ctaButton('Go to My Dashboard', `${PORTAL_URL}/portal`, '#0891B2')}
 
     <p style="margin:28px 0 0;font-size:12px;color:#94A3B8;text-align:center;line-height:1.5;">
       If you didn't create this account, please contact us immediately at<br/>
@@ -269,14 +316,15 @@ export function signupConfirmationEmail(data: SignupEmailData): string {
   `;
 
   return baseLayout(
-    `Welcome to MediSynx, ${data.firstName}! Your patient portal account is ready.`,
+    `Welcome to MediSynx, ${data.firstName}! Your patient portal account is ready — here's how to get started.`,
     '🏥',
-    'Account Created Successfully',
-    'Your MediSynx Patient Portal is ready to use',
+    'Welcome to MediSynx EHR',
+    'Your all-in-one digital health platform is ready',
     body,
     '#4CAF50',
   );
 }
+
 
 // ─── Template 2: Login Welcome ────────────────────────────────────────────────
 

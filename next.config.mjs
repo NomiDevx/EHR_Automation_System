@@ -19,6 +19,18 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  webpack: (config, { dev }) => {
+    if (dev) {
+      // Suppress noisy but harmless webpack cache serialization warnings.
+      // These are triggered by large strings (e.g. from icon libraries) being
+      // written to the webpack pack-file cache and do not affect correctness.
+      config.infrastructureLogging = {
+        ...config.infrastructureLogging,
+        level: 'error',
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

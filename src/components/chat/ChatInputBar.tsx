@@ -16,6 +16,8 @@ interface ChatInputBarProps {
   onMicToggle: () => void;
 }
 
+import { TalkToHumanButton } from './TalkToHumanButton';
+
 export function ChatInputBar({
   input,
   interimTranscript,
@@ -78,7 +80,7 @@ export function ChatInputBar({
 
       <form
         onSubmit={handleSubmit}
-        className="flex items-end gap-2 p-4"
+        className="flex items-end gap-2 p-4 pb-2"
         aria-label="Send a message"
       >
         <div className="flex-1">
@@ -138,6 +140,11 @@ export function ChatInputBar({
           <span className="sr-only">Send</span>
         </Button>
       </form>
+
+      {/* Sub-bar with Talk to a real person option */}
+      <div className="px-4 pb-2 flex justify-end items-center">
+        <TalkToHumanButton inline />
+      </div>
     </div>
   );
 }
