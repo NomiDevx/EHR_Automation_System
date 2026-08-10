@@ -75,6 +75,8 @@ const config: Config = {
         "slide-up": "slideUp 0.4s ease-out",
         "pulse-slow": "pulse 3s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        float: "float 5s ease-in-out infinite",
+        "float-delayed": "float-delayed 6s ease-in-out infinite 1s",
       },
       keyframes: {
         fadeIn: {
@@ -92,6 +94,14 @@ const config: Config = {
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        "float-delayed": {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(10px)" },
         },
       },
       boxShadow: {

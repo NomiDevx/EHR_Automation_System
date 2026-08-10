@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Profile } from '@/lib/types/database';
 import { HeroSlider } from '@/components/HeroSlider';
 import { ProcessStepsWidget } from '@/components/ProcessStepsWidget';
@@ -177,85 +178,57 @@ export function HomeClient({ doctors }: HomeClientProps) {
             </div>
           </div>
 
-          {/* Right Column: Hero Interactive Quick Booking Card */}
-          <div className="lg:col-span-5">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl space-y-5 relative overflow-hidden">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          {/* Right Column: Hero Dashboard Showcase with Glassmorphism & Animations */}
+          <div className="lg:col-span-5 relative group">
+            {/* Ambient Background Glow Effect */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-[#0891B2]/40 via-[#14B8A6]/30 to-[#4CAF50]/20 rounded-[2.5rem] blur-2xl opacity-75 group-hover:opacity-100 transition-opacity duration-700 animate-pulse-slow pointer-events-none" />
+
+            {/* Floating Top Status Badge */}
+            <div className="absolute -top-5 -right-3 z-30 animate-float hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl text-xs font-extrabold text-[#0B2A55]">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Administrator Portal Live</span>
+            </div>
+
+            {/* Floating Bottom Metric Badge */}
+            <div className="absolute -bottom-6 -left-4 z-30 animate-float-delayed hidden sm:flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-[#0B2A55]/95 backdrop-blur-md border border-white/10 shadow-2xl text-white text-xs font-bold">
+              <div className="w-7 h-7 rounded-xl bg-[#0891B2]/30 border border-[#0891B2]/40 text-[#22D3EE] flex items-center justify-center font-bold">
+                ⚡
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-300 font-medium uppercase tracking-wider">Live System Sync</p>
+                <p className="text-xs font-extrabold text-cyan-300">5,568 Active Patients</p>
+              </div>
+            </div>
+
+            {/* Glassmorphic Mockup Container */}
+            <div className="relative z-10 bg-white/90 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-3 sm:p-4 shadow-[0_20px_50px_rgba(11,42,85,0.15)] group-hover:shadow-[0_30px_70px_rgba(8,145,178,0.25)] transition-all duration-500 transform group-hover:-translate-y-1">
+              {/* Browser / Device Header Bar */}
+              <div className="flex items-center justify-between pb-3 px-2 border-b border-slate-100 mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#0891B2]/10 border border-[#0891B2]/20 text-[#0891B2] flex items-center justify-center">
-                    <Zap className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-400/80 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/80 inline-block" />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm text-slate-900">Instant Appointment Preview</h3>
-                    <p className="text-[11px] text-slate-500">Self-service outpatient reservation</p>
-                  </div>
+                  <span className="text-[11px] font-semibold text-slate-400 ml-2 font-mono">
+                    medisynxehr.com/admin
+                  </span>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold">
-                  No Signup Required
+                <span className="px-2.5 py-0.5 rounded-full bg-[#0891B2]/10 border border-[#0891B2]/20 text-[#0891B2] text-[10px] font-bold">
+                  v2.4 Production
                 </span>
               </div>
 
-              <div className="space-y-3.5 text-xs">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Select Department</label>
-                  <select
-                    value={quickDept}
-                    onChange={(e) => setQuickDept(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-[#0891B2]/30 outline-none"
-                  >
-                    <option value="General Practice">General Practice &amp; Checkups</option>
-                    <option value="Cardiology">Cardiology &amp; EKG</option>
-                    <option value="Pediatrics">Pediatrics &amp; Family Care</option>
-                    <option value="Telehealth">HD Virtual Telehealth</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Preferred Doctor</label>
-                  <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-[#0891B2] text-white flex items-center justify-center font-bold text-xs">
-                        {doctors[0]?.first_name?.[0] || 'D'}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">
-                          {doctors[0] ? `Dr. ${doctors[0].first_name} ${doctors[0].last_name}` : 'Dr. Sarah Smith'}
-                        </p>
-                        <p className="text-[10px] text-slate-500">{doctors[0]?.specialty || quickDept}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                      Available
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Earliest Open Slot</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['09:00 AM Tomorrow', '02:00 PM Tomorrow'].map((slot) => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setQuickSlot(slot)}
-                        className={`p-2.5 rounded-xl border text-center font-bold transition-all ${
-                          quickSlot === slot
-                            ? 'bg-[#0891B2] text-white border-[#0891B2] shadow-sm'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <a
-                  href="#booking-section"
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#0B2A55] text-white font-bold text-xs hover:bg-[#0891B2] transition-all shadow-md mt-2"
-                >
-                  Continue to Complete Booking <ArrowRight className="w-4 h-4" />
-                </a>
+              {/* High-Resolution Screenshot Image */}
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-50 shadow-inner group-hover:scale-[1.01] transition-transform duration-500">
+                <Image
+                  src="/images/dashboard-preview.png"
+                  alt="MediSynx EHR Administrator Portal Dashboard"
+                  width={1200}
+                  height={675}
+                  className="w-full h-auto object-cover rounded-xl shadow-sm"
+                  priority
+                />
               </div>
             </div>
           </div>
