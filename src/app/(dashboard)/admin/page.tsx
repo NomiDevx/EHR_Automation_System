@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import type { Profile, AuditLog } from '@/lib/types/database';
 import { redirect } from 'next/navigation';
-import { getWebhookUrl, getLiveAdminDashboardData } from '@/app/actions';
+import { getWebhookUrl, getLiveAdminDashboardData, getContactSubmissions } from '@/app/actions';
 import { AdminDashboardClient } from './AdminDashboardClient';
 
 export const metadata: Metadata = { title: 'Admin Dashboard | MediSynx EHR' };
@@ -12,10 +12,12 @@ async function getAdminStats(supabase: Awaited<ReturnType<typeof createClient>>)
     liveData,
     { data: recentLogs },
     { data: recentUsers },
+    contactRes,
   ] = await Promise.all([
     getLiveAdminDashboardData(),
     supabase.from('audit_logs').select('*, actor:profiles(first_name, last_name)').order('created_at', { ascending: false }).limit(6),
     supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(5),
+    getContactSubmissions(),
   ]);
 
   return {
@@ -31,6 +33,7 @@ async function getAdminStats(supabase: Awaited<ReturnType<typeof createClient>>)
     demographics: liveData?.demographics,
     bedsInfo: liveData?.bedsInfo,
     weeklyChartData: liveData?.weeklyChartData,
+    contactSubmissions: contactRes?.submissions ?? [],
   };
 }
 
@@ -59,6 +62,7 @@ export default async function AdminDashboard() {
       bedsInfo={stats.bedsInfo}
       upcomingApptsCount={stats.upcomingApptsCount}
       weeklyChartData={stats.weeklyChartData}
+      contactSubmissions={stats.contactSubmissions}
     />
   );
 }

@@ -42,6 +42,7 @@ interface AdminDashboardClientProps {
   };
   upcomingApptsCount?: number;
   weeklyChartData?: { day: string; count: number }[];
+  contactSubmissions?: any[];
 }
 
 const DEFAULT_WEEKLY_DATA = [
@@ -130,8 +131,12 @@ export function AdminDashboardClient({
   bedsInfo,
   upcomingApptsCount,
   weeklyChartData,
+  contactSubmissions,
 }: AdminDashboardClientProps) {
   const router = useRouter();
+  const unreadContactCount = useMemo(() => {
+    return (contactSubmissions ?? []).filter((c: any) => c?.status === 'unread').length;
+  }, [contactSubmissions]);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Weekly' | 'Monthly'>('Weekly');
   const [demoView, setDemoView] = useState<'Age' | 'Gender'>('Age');
@@ -363,9 +368,14 @@ export function AdminDashboardClient({
           </button>
 
           <Link href="/admin/messages">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#0891B2]/30 bg-[#0891B2]/10 hover:bg-[#0891B2]/20 text-xs font-bold text-[#0891B2] transition-all shadow-sm cursor-pointer">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#0891B2]/30 bg-[#0891B2]/10 hover:bg-[#0891B2]/20 text-xs font-bold text-[#0891B2] transition-all shadow-sm cursor-pointer relative">
               <MessageSquare className="w-3.5 h-3.5" />
               <span>Contact Messages</span>
+              {unreadContactCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-extrabold leading-none">
+                  {unreadContactCount}
+                </span>
+              )}
             </span>
           </Link>
 

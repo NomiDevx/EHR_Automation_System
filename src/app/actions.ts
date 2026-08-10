@@ -1195,7 +1195,7 @@ export async function submitContactForm(data: {
   try {
     const { name, email, subject, message } = data;
 
-    if (!name || !email || !subject || !message) {
+    if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
       return { success: false, error: 'All fields are required.' };
     }
 
@@ -1209,15 +1209,50 @@ export async function submitContactForm(data: {
       created_at: new Date().toISOString(),
     };
 
-    // Store in memory cache
+    // Store in memory cache immediately so it's instantly available
     memoryContactSubmissions.unshift(newItem);
 
-    // Try storing in Supabase contact_submissions table if available
+    // Persist in Supabase with a fast 3-second timeout race
     try {
       const adminSupabase = createAdminClient();
-      await adminSupabase.from('contact_submissions').insert(newItem);
-    } catch {
-      // Supabase table may not exist yet; gracefully handled via memoryContactSubmissions
+
+      const dbTask = (async () => {
+        // 1. Direct insert to contact_submissions table
+        const { error: insertErr } = await adminSupabase
+          .from('contact_submissions')
+          .insert({
+            id: newItem.id,
+            name: newItem.name,
+            email: newItem.email,
+            subject: newItem.subject,
+            message: newItem.message,
+            status: newItem.status,
+            created_at: newItem.created_at,
+            updated_at: newItem.created_at,
+          });
+
+        if (insertErr) {
+          console.warn('[submitContactForm] contact_submissions insert warn:', insertErr.message);
+        }
+
+        // 2. Also log to audit_logs as backup
+        const { error: auditErr } = await adminSupabase.from('audit_logs').insert({
+          action: 'create',
+          table_name: 'contact_submissions',
+          record_id: newItem.id,
+          changes: newItem as any,
+          created_at: newItem.created_at,
+        });
+
+        if (auditErr) {
+          console.warn('[submitContactForm] audit_logs insert warn:', auditErr.message);
+        }
+      })();
+
+      const timeoutTask = new Promise((resolve) => setTimeout(resolve, 3000));
+      await Promise.race([dbTask, timeoutTask]);
+    } catch (err: any) {
+      console.warn('[submitContactForm] Supabase operation warning:', err?.message || err);
     }
 
     return { success: true };
@@ -1236,26 +1271,60 @@ export async function getContactSubmissions(): Promise<{
 
     try {
       const adminSupabase = createAdminClient();
-      const { data, error } = await adminSupabase
-        .from('contact_submissions')
-        .select('*')
-        .order('created_at', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        dbSubmissions = data as ContactSubmissionItem[];
-      }
-    } catch {
-      // Table doesn't exist yet, fallback to memory
+      const fetchTask = (async () => {
+        // 1. Check contact_submissions table
+        const { data: directData, error: directErr } = await adminSupabase
+          .from('contact_submissions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!directErr && directData && directData.length > 0) {
+          dbSubmissions.push(...(directData as ContactSubmissionItem[]));
+        }
+
+        // 2. Also check audit_logs table for table_name = 'contact_submissions'
+        const { data: auditData } = await adminSupabase
+          .from('audit_logs')
+          .select('record_id, changes, created_at')
+          .eq('table_name', 'contact_submissions')
+          .order('created_at', { ascending: false });
+
+        if (auditData && auditData.length > 0) {
+          auditData.forEach((row: any) => {
+            if (row.changes && row.changes.name && row.changes.email) {
+              dbSubmissions.push({
+                id: row.changes.id || row.record_id || `cnt-${row.created_at}`,
+                name: row.changes.name,
+                email: row.changes.email,
+                subject: row.changes.subject || 'Inquiry',
+                message: row.changes.message || '',
+                status: row.changes.status || 'unread',
+                created_at: row.changes.created_at || row.created_at,
+              });
+            }
+          });
+        }
+      })();
+
+      const timeoutTask = new Promise((resolve) => setTimeout(resolve, 3000));
+      await Promise.race([fetchTask, timeoutTask]);
+    } catch (err: any) {
+      console.warn('[getContactSubmissions] Supabase query warning:', err?.message || err);
     }
 
     // Merge memory submissions with db submissions (deduplicating by ID)
-    const idSet = new Set(dbSubmissions.map((s) => s.id));
-    const merged = [
-      ...dbSubmissions,
-      ...memoryContactSubmissions.filter((m) => !idSet.has(m.id)),
-    ].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    const idSet = new Set<string>();
+    const merged: ContactSubmissionItem[] = [];
+
+    [...dbSubmissions, ...memoryContactSubmissions].forEach((item) => {
+      if (item && item.id && !idSet.has(item.id)) {
+        idSet.add(item.id);
+        merged.push(item);
+      }
+    });
+
+    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return { success: true, submissions: merged };
   } catch (err: any) {
@@ -1276,12 +1345,34 @@ export async function updateContactStatus(
 
     try {
       const adminSupabase = createAdminClient();
-      await adminSupabase
-        .from('contact_submissions')
-        .update({ status })
-        .eq('id', id);
-    } catch {
-      // Fallback handled
+
+      const updateTask = (async () => {
+        await adminSupabase
+          .from('contact_submissions')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id);
+
+        const { data: auditRows } = await adminSupabase
+          .from('audit_logs')
+          .select('id, changes')
+          .eq('table_name', 'contact_submissions')
+          .eq('record_id', id);
+
+        if (auditRows && auditRows.length > 0) {
+          for (const row of auditRows) {
+            const updatedChanges = { ...(row.changes as object), status };
+            await adminSupabase
+              .from('audit_logs')
+              .update({ changes: updatedChanges })
+              .eq('id', row.id);
+          }
+        }
+      })();
+
+      const timeoutTask = new Promise((resolve) => setTimeout(resolve, 3000));
+      await Promise.race([updateTask, timeoutTask]);
+    } catch (err: any) {
+      console.warn('[updateContactStatus] Supabase update warning:', err?.message || err);
     }
 
     return { success: true };
@@ -1300,9 +1391,16 @@ export async function deleteContactSubmission(id: string): Promise<{ success: bo
 
     try {
       const adminSupabase = createAdminClient();
-      await adminSupabase.from('contact_submissions').delete().eq('id', id);
-    } catch {
-      // Fallback handled
+
+      const deleteTask = (async () => {
+        await adminSupabase.from('contact_submissions').delete().eq('id', id);
+        await adminSupabase.from('audit_logs').delete().eq('table_name', 'contact_submissions').eq('record_id', id);
+      })();
+
+      const timeoutTask = new Promise((resolve) => setTimeout(resolve, 3000));
+      await Promise.race([deleteTask, timeoutTask]);
+    } catch (err: any) {
+      console.warn('[deleteContactSubmission] Supabase delete warning:', err?.message || err);
     }
 
     return { success: true };

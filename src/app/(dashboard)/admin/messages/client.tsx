@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { 
   ContactSubmissionItem, 
+  getContactSubmissions,
   updateContactStatus, 
   deleteContactSubmission 
 } from '@/app/actions';
@@ -32,10 +33,25 @@ export function ContactMessagesClient({ initialSubmissions }: ContactMessagesCli
   const [filterStatus, setFilterStatus] = useState<'all' | 'unread' | 'read' | 'replied'>('all');
   const [selectedMessage, setSelectedMessage] = useState<ContactSubmissionItem | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const unreadCount = submissions.filter((s) => s.status === 'unread').length;
   const readCount = submissions.filter((s) => s.status === 'read').length;
   const repliedCount = submissions.filter((s) => s.status === 'replied').length;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const res = await getContactSubmissions();
+      if (res.success && res.submissions) {
+        setSubmissions(res.submissions);
+      }
+    } catch (err) {
+      console.error('Failed to refresh messages:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Filter & Search logic
   const filteredSubmissions = submissions.filter((item) => {
@@ -93,6 +109,16 @@ export function ContactMessagesClient({ initialSubmissions }: ContactMessagesCli
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E2E8F0] bg-white hover:bg-[#F8FAFC] text-xs font-bold text-[#0B2A55] transition-all shadow-sm disabled:opacity-60"
+            title="Refresh Messages"
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5 text-[#0891B2]', isRefreshing && 'animate-spin')} />
+            <span>Refresh</span>
+          </button>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0891B2]/10 border border-[#0891B2]/20 text-[#0891B2] text-xs font-bold">
             <MessageSquare className="w-3.5 h-3.5" /> Total: {submissions.length}
           </span>

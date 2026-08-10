@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation';
 import { getContactSubmissions } from '@/app/actions';
 import { ContactMessagesClient } from './client';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: 'Contact Messages & Inquiries | Admin Dashboard | MediSynx EHR',
 };
